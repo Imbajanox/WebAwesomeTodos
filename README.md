@@ -1,6 +1,8 @@
 # WebAwesomeTodos
 
 A small PHP + MySQL backed todo (task manager) with a WebAwesome-based frontend. Its purpose is to test the new Web Awesome Framework from the creators of Font Awesome
+## Preview
+<img width="822" height="677" alt="image" src="https://github.com/user-attachments/assets/28f7f36c-69a7-4e10-b471-cf3adb581e12" />
 
 ## Features
 - Add, mark complete, and delete tasks
@@ -49,4 +51,3 @@ CREATE TABLE tasks (
 - Convert to a PWA (offline-first) or add user accounts + sync (Firebase or simple API)
 
 
-<img width="822" height="677" alt="image" src="https://github.com/user-attachments/assets/28f7f36c-69a7-4e10-b471-cf3adb581e12" />
