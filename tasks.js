@@ -254,27 +254,91 @@ async function deleteTask(id) {
 // ===================================
 // E. WA DIALOG (Modal) für Löschbestätigung
 // ===================================
+
+// MODIFIED: We still need a global reference, but it will only be set after
+// the element is fully upgraded (in showDeleteDialog).
+let deleteDialog = null; 
+
+// Global variable to store the ID of the task currently being deleted
+let currentTaskIdToDelete = null; 
+
+// NOTE: Ensure you have a 'deleteTask(id)' function defined elsewhere!
+// function deleteTask(id) { /* ... your task deletion logic ... */ }
+
+// Attach the delegated event listener to the document body or a containing element
+
+
+// -----------------------------------
+// Function to show the deletion dialog
+// -----------------------------------
+
 function showDeleteDialog(id, title) {
     const dialogId = 'deleteDialog';
     let dialog = document.getElementById(dialogId);
     
+    // Set the current ID globally before showing
+    currentTaskIdToDelete = id;
+	//console.log(currentTaskIdToDelete);
     if (!dialog) {
         dialog = document.createElement('wa-dialog');
         dialog.id = dialogId;
         dialog.setAttribute('label', 'Aufgabe löschen');
         document.body.appendChild(dialog);
+        
+        // We will assign deleteDialog later, after the element is defined!
     }
     
+    // 1. Set content with IDs and the crucial data-dialog="close" attribute
     dialog.innerHTML = `
         <p>Möchtest du die Aufgabe "<strong>${title}</strong>" wirklich löschen?</p>
-        <wa-button slot="footer" onclick="document.getElementById('${dialogId}').hide()">Abbrechen</wa-button>
-        <wa-button slot="footer" variant="danger" id="confirmDeleteButton">Wirklich löschen</wa-button>
+        <wa-button slot="footer" id="cancelDeleteButton" data-dialog="close">Abbrechen</wa-button>
+        <wa-button slot="footer" variant="danger" id="confirmDeleteButton" data-dialog="close">Wirklich löschen</wa-button>
     `;
-    
-    document.getElementById('confirmDeleteButton').onclick = () => {
-        dialog.hide();
-        deleteTask(id);
-    };
 
-    dialog.show();
+    // 2. Show the dialog
+    customElements.whenDefined('wa-dialog').then(() => {
+        deleteDialog = dialog;
+
+        // --- NEW: Attach listeners directly to the buttons ---
+        const confirmButton = dialog.querySelector('#confirmDeleteButton');
+        const cancelButton = dialog.querySelector('#cancelDeleteButton');
+
+        // IMPORTANT: Use .removeEventListener first to prevent duplicate listeners
+        confirmButton.removeEventListener('click', handleConfirmClick);
+        cancelButton.removeEventListener('click', handleCancelClick);
+
+        confirmButton.addEventListener('click', handleConfirmClick);
+        cancelButton.addEventListener('click', handleCancelClick);
+        // ----------------------------------------------------
+
+        window.requestAnimationFrame(() => {
+            dialog.show(); 
+        });
+    });
+}
+
+// --- NEW: Separate handler functions ---
+
+function handleConfirmClick(event) {
+    event.preventDefault(); // Prevent default if needed, though data-dialog="close" might run first
+
+    if (currentTaskIdToDelete !== null) {
+        const taskId = currentTaskIdToDelete; 
+        
+        // Use setTimeout to ensure the dialog closes before deletion runs
+        setTimeout(() => {
+            deleteTask(taskId); 
+            console.log(`Task ${taskId} deleted successfully (direct listener).`);
+        }, 50); 
+    }
+    
+    // Since data-dialog="close" is on the button, the dialog should hide itself.
+    currentTaskIdToDelete = null;
+}
+
+function handleCancelClick(event) {
+    event.preventDefault(); 
+    currentTaskIdToDelete = null;
+    console.log(`Deletion cancelled (direct listener).`);
+    // Dialog closes itself due to data-dialog="close"
 }
