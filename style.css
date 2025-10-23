@@ -4,9 +4,8 @@
 /* ------------------------------------------------ */
 body {
     font-family: var(--wa-font-sans);
-    /* Hintergrund: Sehr dunkle Basis (Deep Purple/Navy-ähnlich) */
-    background-color: #1a1a2e; /* Dunkler als standard WA-Neutral */
-    color: var(--wa-color-neutral-text-strong); /* Heller Text */
+    background-color: #1a1a2e;
+    color: var(--wa-color-neutral-text-strong);
     padding: 3rem 0;
 }
 .container {
@@ -15,13 +14,11 @@ body {
     padding: 0 1.5rem;
 }
 h1 {
-    /* Titel-Text: Sehr hell */
     color: #ffffff; 
     font-size: 2.5rem; 
-    font-weight: 800; /* Stärkerer Font-Weight */
+    font-weight: 800;
     text-transform: none; 
-    
-    /* Trennlinie entfernen oder subtil gestalten */
+
     border-bottom: none; 
     padding-bottom: 0.25rem;
     margin-bottom: 2.5rem; 
@@ -29,7 +26,7 @@ h1 {
     align-items: center;
     gap: 0.75rem;
 }
-/* Icon im Header leicht heller */
+
 h1 .fas {
     color: var(--wa-color-primary-light);
 }
@@ -43,11 +40,10 @@ h1 .fas {
     margin-bottom: 3.5rem; 
     align-items: stretch;
 }
-/* wa-input wird Dunkel */
+
 .add-task-form wa-input {
     flex-grow: 1;
     --wa-input-border-radius: var(--wa-border-radius-large);
-    /* Dunkler Hintergrund, Heller Text */
     --wa-input-color-background: #252641; 
     --wa-input-color-text: var(--wa-color-neutral-text-light);
     --wa-input-color-border: #4a4a6e;
@@ -71,21 +67,17 @@ h1 .fas {
     background-color: #252641;
     box-shadow: none; 
     border: none; 
-    /* WICHTIG: Vertikalen Padding reduzieren für kompaktere Karten */
     padding: 0.6rem 1.4rem; 
     
     border-radius: var(--wa-border-radius-large); 
     
-    /* Layout: [Checkbox] | [Text] | [Button] */
     display: flex;
     justify-content: space-between;
-    /* FIX: Vertikale Zentrierung des Inhalts erzwingen */
     align-items: center; 
     transition: all 0.2s ease-in-out; 
     min-height: 48px; 
 }
 
-/* Moderner Hover-Effekt */
 .task-list wa-card:hover:not(.completed) {
     background-color: #2c2d4c; 
     box-shadow: none;
@@ -97,7 +89,6 @@ h1 .fas {
 /* 4. INNERE ELEMENTE & AKTIONEN (FIXED & Final) */
 /* ------------------------------------------------ */
 
-/* FIX: Vertikale Zentrierung des Inhalts über den inneren Body-Slot */
 .task-list wa-card::part(body) {
     display: flex !important;
     align-items: center !important; 
@@ -106,9 +97,7 @@ h1 .fas {
     gap: 0; 
 }
 
-/* Checkbox (Rundheit und Farben) */
 wa-checkbox {
-    /* Abstand zum Text */
     margin-right: 1rem; 
     --wa-checkbox-label-display: none; 
     --wa-checkbox-size: 22px; 
@@ -129,26 +118,24 @@ wa-checkbox:state(checked)::part(control) {
 
 
 .task-title {
-    flex-grow: 1; /* Nimmt den gesamten mittleren Platz ein */
+    flex-grow: 1;
     font-size: 1.1rem; 
     font-weight: 500;
     color: #f0f0f0; 
     padding: 0; 
-    margin-right: auto; /* WICHTIG: Schiebt den Button nach ganz rechts */
+    margin-right: auto;
     word-break: break-word; 
     line-height: 1.3; 
 }
 
 
 .task-actions {
-    /* Enthält nur noch den Button */
     flex-shrink: 0;
-    margin-left: 1rem; /* Abstand vom Text zum Button */
+    margin-left: 1rem;
     display: flex;
     align-items: center; 
 }
 
-/* WA Button Optik (Löschen) */
 .task-actions wa-button {
     --wa-button-padding-block: 0.1rem !important; 
     --wa-button-padding-inline: 0.1rem !important;
@@ -161,7 +148,6 @@ wa-checkbox:state(checked)::part(control) {
 }
 
 .task-actions wa-button::part(base) {
-    /* Feste Größe und Zentrierung erzwingen */
     width: 32px !important;
     height: 32px !important;
     min-height: 32px !important;
@@ -240,9 +226,8 @@ wa-checkbox:state(checked)::part(control) {
 #taskCounter {
     font-weight: 600;
     text-transform: uppercase;
-    /* Farben an dunklen Hintergrund anpassen */
     --wa-badge-color-info-background: #4a4a6e;
     --wa-badge-color-info-foreground: #ffffff;
-    --wa-badge-color-warning-background: #ffc107; /* Gelb beibehalten */
+    --wa-badge-color-warning-background: #ffc107;
     --wa-badge-color-warning-foreground: #1a1a2e;
 }

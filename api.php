@@ -1,6 +1,6 @@
 <?php
 // =================================================================
-// PHP KONFIGURATION & DATENBANKVERBINDUNG (WIE ZUVOR)
+// PHP KONFIGURATION & DATENBANKVERBINDUNG
 // =================================================================
 $host = '127.0.0.1'; 
 $db   = 'task_manager_wa';
@@ -23,10 +23,8 @@ try {
      exit;
 }
 
-// Setze den Content-Type auf JSON
 header('Content-Type: application/json');
 
-// Lese die JSON-Eingabe für POST/PUT/DELETE
 $input = json_decode(file_get_contents('php://input'), true);
 $request_method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
@@ -62,7 +60,7 @@ switch ($request_method) {
     case 'PUT':
         if ($action === 'toggle' && isset($input['id'])) {
             $id = $input['id'];
-            // Aktuellen Status abfragen und umkehren
+
             $stmt = $pdo->prepare("SELECT is_completed FROM tasks WHERE id = ?");
             $stmt->execute([$id]);
             $current_status = $stmt->fetchColumn();
@@ -91,7 +89,7 @@ switch ($request_method) {
         break;
         
     default:
-        http_response_code(405); // Method Not Allowed
+        http_response_code(405);d
         echo json_encode(['error' => 'Method not allowed.']);
         break;
 }

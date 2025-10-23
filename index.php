@@ -11,34 +11,33 @@
 
 </head>
 <body>
+	<div class="container">
+		<h1><i class="fas fa-list-check"></i> Web AwesomeTask Manager</h1>
+		
+		<form id="addTaskForm" class="add-task-form">
+			<wa-input type="text" id="taskTitle" placeholder="Neue Aufgabe hinzufügen..." size="large" required>
+				<i class="fas fa-keyboard" slot="start"></i>
+			</wa-input>
+			<wa-button appearance="filled" variant="primary" type="submit" size="large" id="addButton">
+				<i class="fas fa-plus" slot="start"></i> Hinzufügen
+			</wa-button>
+		</form>
 
-<div class="container">
-    <h1><i class="fas fa-list-check"></i>Task Manager</h1>
-    
-    <form id="addTaskForm" class="add-task-form">
-        <wa-input type="text" id="taskTitle" placeholder="Neue Aufgabe hinzufügen..." size="large" required>
-            <i class="fas fa-keyboard" slot="start"></i>
-        </wa-input>
-        <wa-button appearance="filled" variant="primary" type="submit" size="large" id="addButton">
-            <i class="fas fa-plus" slot="start"></i> Hinzufügen
-        </wa-button>
-    </form>
+		<div class="task-controls">
+			<wa-badge variant="info" id="taskCounter" style="--wa-badge-padding-inline: 1rem;">
+				Noch <span>0</span> offene Aufgaben
+			</wa-badge>
 
-    <div class="task-controls">
-        <wa-badge variant="info" id="taskCounter" style="--wa-badge-padding-inline: 1rem;">
-            Noch <span>0</span> offene Aufgaben
-        </wa-badge>
+			<wa-button-group appearance="filled" size="small">
+				<wa-button id="filterAll" variant="primary" active>Alle</wa-button>
+				<wa-button id="filterOpen" variant="neutral">Offen</wa-button>
+				<wa-button id="filterCompleted" variant="neutral">Erledigt</wa-button>
+			</wa-button-group>
+		</div>
 
-        <wa-button-group appearance="filled" size="small">
-            <wa-button id="filterAll" variant="primary" active>Alle</wa-button>
-            <wa-button id="filterOpen" variant="neutral">Offen</wa-button>
-            <wa-button id="filterCompleted" variant="neutral">Erledigt</wa-button>
-        </wa-button-group>
-    </div>
-
-    <div id="taskListContainer">
-        </div>
-</div>
-<script src="tasks.js" defer></script>
+		<div id="taskListContainer">
+			</div>
+	</div>
+	<script src="tasks.js" defer></script>
 </body>
 </html>
