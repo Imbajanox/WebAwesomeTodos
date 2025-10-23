@@ -1,0 +1,186 @@
+/* ------------------------------------------------ */
+/* 1. GLOBALE STILE & LAYOUT (Verfeinert) */
+/* ------------------------------------------------ */
+body {
+    font-family: var(--wa-font-sans);
+    /* Hintergrund leicht aufgehellt */
+    background-color: var(--wa-color-neutral-background-0); 
+    padding: 3rem 0;
+}
+.container {
+    max-width: 650px; /* Container leicht verbreitert */
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+h1 {
+    color: var(--wa-color-neutral-text-strong);
+    font-size: 2.25rem; /* Etwas größerer Titel */
+    font-weight: 700;
+    /* Klarere, dünnere Trennlinie */
+    border-bottom: 1px solid var(--wa-color-neutral-border-quiet); 
+    padding-bottom: 0.75rem;
+    margin-bottom: 2.5rem;
+    display: flex; 
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* ------------------------------------------------ */
+/* 2. FORMULAR STYLING (Moderner) */
+/* ------------------------------------------------ */
+.add-task-form {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 3.5rem; /* Mehr Platz zur Liste */
+    align-items: stretch; /* Stellt sicher, dass alle Elemente gleiche Höhe haben */
+}
+/* wa-input wird etwas eleganter gestylt */
+.add-task-form wa-input {
+    flex-grow: 1;
+    --wa-input-border-radius: var(--wa-border-radius-large); /* Leicht abgerundet */
+}
+.add-task-form wa-button {
+    border-radius: var(--wa-border-radius-large);
+    font-weight: 600;
+}
+
+/* ------------------------------------------------ */
+/* 3. TASK LIST STYLING (Flach & Modern) */
+/* ------------------------------------------------ */
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Weniger Abstand zwischen den Karten */
+}
+
+.task-list wa-card {
+    /* Standard-Schatten für sauberen Look */
+    box-shadow: var(--wa-shadow-extra-small); 
+    border: 1px solid var(--wa-color-neutral-border-quiet);
+    border-radius: var(--wa-border-radius-medium);
+    padding: 1.25rem 1.5rem; /* Etwas mehr Innenabstand */
+    margin-bottom: 0; /* Abstand wird über .task-list gap gesteuert */
+    
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Elegante Transition */
+}
+
+/* Moderner Hover-Effekt (nur für offene Tasks) */
+.task-list wa-card:hover:not(.completed) {
+    box-shadow: var(--wa-shadow-small);
+    border-color: var(--wa-color-primary-border); /* Leichter Akzentrand */
+    transform: translateY(-1px); /* Subtiler Lift */
+}
+
+/* ------------------------------------------------ */
+/* 4. INNERE ELEMENTE & AKTIONEN */
+/* ------------------------------------------------ */
+.task-title {
+    flex-grow: 1;
+    font-size: 1.05rem; /* Etwas größerer Text */
+    font-weight: 500; /* Halbfett */
+    color: var(--wa-color-neutral-text);
+    padding-right: 1.5rem;
+    /* Verhindert, dass der Text bei langen Wörtern überläuft */
+    word-break: break-word; 
+}
+
+.task-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; 
+    flex-shrink: 0;
+}
+
+/* WA-Checkbox Optik Anpassung (Subtiler) */
+.task-actions wa-checkbox {
+    /* Checkbox Label entfernen (wie im Original) */
+    --wa-checkbox-label-display: none; 
+    --wa-checkbox-size: 20px; /* Leicht vergrößert */
+    --wa-checkbox-border-radius: var(--wa-border-radius-small);
+    --wa-checkbox-color-checked-background: var(--wa-color-success); /* Grüner bei Erfolg */
+    --wa-checkbox-color-checked-border: var(--wa-color-success);
+    transition: all 0.15s ease-in-out;
+}
+
+/* WA Button Optik (Löschen) - Etwas runder */
+.task-actions wa-button {
+    --wa-button-padding-block: 0.5rem;
+    --wa-button-padding-inline: 0.5rem;
+    border-radius: var(--wa-border-radius-medium); 
+    /* Subtile Gefahr-Farbe (Sekundäre Variante) */
+    --wa-button-color-danger-background: var(--wa-color-danger-weak); 
+    --wa-button-color-danger-foreground: var(--wa-color-danger);
+    --wa-button-color-danger-border: var(--wa-color-danger-weak);
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+.task-actions wa-button:hover {
+    opacity: 1;
+}
+
+/* ------------------------------------------------ */
+/* 5. ERLEDIGT STATUS (COMPLETED) - FOKUSSIERT */
+/* ------------------------------------------------ */
+.task-list wa-card.completed {
+    /* Optische Betonung: Kein Schatten, ruhiger Hintergrund */
+    background-color: var(--wa-color-neutral-background-1); 
+    border-left: 5px solid var(--wa-color-success-weak); /* Dezenter grüner Balken */
+    box-shadow: none; 
+    opacity: 0.75;
+}
+
+/* Kritisches Durchstreichen (Wie in der Lösung besprochen: ohne '>') */
+.task-list wa-card.completed .task-title {
+    text-decoration: line-through !important;
+    color: var(--wa-color-neutral-text-weak) !important; 
+    font-style: italic; /* Zusätzlich kursiv für visuelle Trennung */
+}
+    
+/* ------------------------------------------------ */
+/* 6. RESPONSIVE ANPASSUNGEN */
+/* ------------------------------------------------ */
+@media (max-width: 500px) {
+    .add-task-form {
+        flex-direction: column; /* Input und Button untereinander */
+    }
+    .add-task-form wa-button {
+        width: 100%; /* Button über gesamte Breite */
+    }
+    .task-list wa-card {
+        padding: 1rem 1.25rem;
+    }
+}
+
+/* ------------------------------------------------ */
+/* 7. TASK CONTROLS & FILTER STYLING */
+/* ------------------------------------------------ */
+.task-controls {
+    display: flex;
+    justify-content: space-between; /* Elemente an den Rand schieben */
+    align-items: center;
+    margin-bottom: 1.5rem; /* Abstand zur Aufgabenliste */
+    padding: 0.5rem 0;
+    /* Optional: Leichte Trennung, falls die Liste direkt darunter beginnt */
+    border-bottom: 1px solid var(--wa-color-neutral-border-weak); 
+}
+
+/* Stil für den Zähler (offene Aufgaben) */
+#taskCounter {
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Mobile-Anpassung für die Steuerelemente */
+@media (max-width: 500px) {
+    .task-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    wa-button-group {
+        width: 100%;
+    }
+}
