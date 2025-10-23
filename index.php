@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Awesome Task Manager (PHP/MySQL)</title>
+    <title>Task Manager</title>
 	<link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/styles/webawesome.css">
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -12,7 +12,7 @@
 </head>
 <body>
 	<div class="container">
-		<h1><i class="fas fa-list-check"></i> Web AwesomeTask Manager</h1>
+		<h1><i class="fas fa-list-check"></i>Task Manager</h1>
 		
 		<form id="addTaskForm" class="add-task-form">
 			<wa-input type="text" id="taskTitle" placeholder="Neue Aufgabe hinzufügen..." size="large" required>
