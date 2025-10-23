@@ -19,34 +19,42 @@ let currentFilter = 'all'; // Standardfilter
 
 // Hilfsfunktion zum Erstellen von Web Awesome Komponenten
 function createTaskCard(task) {
+    // 1. Haupt-Container: wa-card
     const card = document.createElement('wa-card');
-    card.className = task.is_completed == 1 ? 'completed' : ''; 
+    card.className = task.is_completed == 1 ? 'completed' : '';
     card.setAttribute('data-id', task.id);
-    
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'task-title';
-    titleSpan.textContent = task.title;
-    
-    card.appendChild(titleSpan); 
+    // WICHTIG: Die Attribute 'appearance' und 'orientation' sind hier nicht mehr nötig
 
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'task-actions';
-    
+    // 2. Checkbox (Toggle) erstellen
     const checkbox = document.createElement('wa-checkbox');
+    // Attribute 'name', 'size', 'value' entfernt, damit CSS die Kontrolle hat
     if (task.is_completed == 1) {
         checkbox.setAttribute('checked', '');
     }
+    // Event Listener für Status-Update
     checkbox.addEventListener('change', () => toggleTask(task.id));
-    actionsDiv.appendChild(checkbox);
 
+    // 3. Titel-Span erstellen
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'task-title';
+    titleSpan.textContent = task.title; // Füllt den Text ein
+
+    // 4. Löschen Button erstellen
     const deleteButton = document.createElement('wa-button');
-    deleteButton.setAttribute('variant', 'danger');
-    deleteButton.setAttribute('size', 'small');
+    // WICHTIG: Attribute 'variant', 'size', 'appearance' entfernt, damit CSS die Kontrolle hat
     deleteButton.innerHTML = '<i class="fas fa-trash-can"></i>'; 
     deleteButton.addEventListener('click', () => showDeleteDialog(task.id, task.title));
-    actionsDiv.appendChild(deleteButton);
 
+    // 5. Aktionen-Gruppe erstellen (enthält NUR NOCH den Löschen-Button)
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'task-actions';
+    actionsDiv.appendChild(deleteButton); 
+
+    // 6. Alles in der gewünschten Reihenfolge zur Card hinzufügen: [Checkbox] | [Text] | [Button]
+    card.appendChild(checkbox);
+    card.appendChild(titleSpan);
     card.appendChild(actionsDiv);
+    
     return card;
 }
 

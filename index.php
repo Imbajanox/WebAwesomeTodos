@@ -13,7 +13,7 @@
 <body>
 
 <div class="container">
-    <h1><i class="fas fa-list-check"></i> Web Awesome Task Manager</h1>
+    <h1><i class="fas fa-list-check"></i>Task Manager</h1>
     
     <form id="addTaskForm" class="add-task-form">
         <wa-input type="text" id="taskTitle" placeholder="Neue Aufgabe hinzufügen..." size="large" required>
