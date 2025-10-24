@@ -12,8 +12,178 @@ const filterAllButton = document.getElementById('filterAll');
 const filterOpenButton = document.getElementById('filterOpen');
 const filterCompletedButton = document.getElementById('filterCompleted');
 
+// NEU: Auth-Elemente
+const taskManagerView = document.getElementById('taskManagerView');
+const authView = document.getElementById('authView');
+const userInfo = document.getElementById('userInfo');
+const usernameDisplay = document.getElementById('usernameDisplay');
+
+const authTitle = document.getElementById('authTitle');
+const authMessage = document.getElementById('authMessage');
+const loginForm = document.getElementById('loginForm');
+const registerForm = document.getElementById('registerForm');
+const loginButton = document.getElementById('loginButton');
+const registerButton = document.getElementById('registerButton');
+const logoutButton = document.getElementById('logoutButton');
+const toggleAuthViewLink = document.getElementById('toggleAuthView');
+
 let allTasks = [];
 let currentFilter = 'all'; // Standardfilter
+let isLoggedIn = false;
+let currentUsername = '';
+
+// =================================================================
+// 1. ANZEIGE LOGIK (Views umschalten)
+// =================================================================
+
+/**
+ * Schaltet zwischen der Login/Register-Ansicht und der Task-Manager-Ansicht um.
+ * @param {boolean} loggedIn - true, wenn der Benutzer eingeloggt ist.
+ * @param {string} username - Der Benutzername des eingeloggten Benutzers.
+ */
+function updateView(loggedIn, username = '') {
+    isLoggedIn = loggedIn;
+    currentUsername = username;
+    
+    if (loggedIn) {
+        authView.style.display = 'none';
+        taskManagerView.style.display = 'block';
+        userInfo.style.display = 'flex';
+        usernameDisplay.textContent = username;
+        fetchTasks(); // Aufgaben nur laden, wenn eingeloggt
+    } else {
+        authView.style.display = 'block';
+        taskManagerView.style.display = 'none';
+        userInfo.style.display = 'none';
+        taskListContainer.innerHTML = ''; // Aufgabenliste leeren
+        allTasks = []; // Lokalen Cache leeren
+        renderTasks(); // Zähler aktualisieren (auf 0)
+    }
+}
+
+/**
+ * Zeigt eine temporäre Nachricht im Auth-Bereich an.
+ */
+function showAuthMessage(message, variant = 'info') {
+    authMessage.innerHTML = `<wa-callout variant="${variant}" style="margin-bottom: 0;">${message}</wa-callout>`;
+    authMessage.style.display = 'block';
+    setTimeout(() => {
+        authMessage.style.display = 'none';
+        authMessage.innerHTML = '';
+    }, 4000);
+}
+
+
+// =================================================================
+// 2. AUTHENTIFIZIERUNG LOGIK (Login, Register, Logout)
+// =================================================================
+
+/**
+ * Sendet Anmeldedaten an den Backend-Endpunkt.
+ * @param {string} action - 'login' oder 'register'
+ * @param {string} username 
+ * @param {string} password 
+ * @param {HTMLElement} buttonElement 
+ */
+async function authenticate(action, username, password, buttonElement) {
+    if (!username || !password) return;
+
+    buttonElement.setAttribute('loading', '');
+
+    try {
+        const response = await fetch(`api.php?action=${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+
+        if (response.ok) {
+            showAuthMessage(`Erfolgreich ${action === 'login' ? 'eingeloggt' : 'registriert'}!`, 'success');
+            // Formulare leeren
+            document.getElementById(`${action}Username`).value = '';
+            document.getElementById(`${action}Password`).value = '';
+            
+            // Ansicht aktualisieren und Tasks laden
+            updateView(true, username); 
+        } else {
+            const errorMessage = data.error || `Fehler bei der ${action}-Anfrage.`;
+            showAuthMessage(errorMessage, 'danger');
+        }
+
+    } catch (error) {
+        console.error(`${action} error:`, error);
+        showAuthMessage('Ein Netzwerkfehler ist aufgetreten.', 'danger');
+    } finally {
+        buttonElement.removeAttribute('loading');
+    }
+}
+
+// Event Listener für Login
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    authenticate('login', username, password, loginButton);
+});
+
+// Event Listener für Registrierung
+registerForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = document.getElementById('registerUsername').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    authenticate('register', username, password, registerButton);
+});
+
+// Event Listener für Logout
+logoutButton.addEventListener('click', async () => {
+    if (!confirm("Wirklich ausloggen?")) return;
+    
+    try {
+        await fetch('api.php?action=logout'); // Session im Backend zerstören
+        updateView(false); // Frontend-Status zurücksetzen
+        showAuthMessage('Erfolgreich ausgeloggt.', 'info');
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+});
+
+// Event Listener zum Umschalten zwischen Login/Register
+toggleAuthViewLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (loginForm.style.display !== 'none') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        authTitle.textContent = 'Registrieren';
+        toggleAuthViewLink.textContent = 'Bereits ein Konto? Hier anmelden.';
+    } else {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        authTitle.textContent = 'Login';
+        toggleAuthViewLink.textContent = 'Noch kein Konto? Hier registrieren.';
+    }
+    authMessage.style.display = 'none'; // Nachricht ausblenden beim Umschalten
+});
+
+/**
+ * Überprüft beim Laden der Seite, ob der Benutzer bereits eingeloggt ist (Session Check).
+ */
+async function checkLoginStatus() {
+    try {
+        const response = await fetch('api.php?action=status');
+        const data = await response.json();
+
+        if (data.is_logged_in) {
+            updateView(true, data.username);
+        } else {
+            updateView(false);
+        }
+    } catch (error) {
+        console.error('Status check error:', error);
+        updateView(false);
+    }
+}
 
 function createTaskCard(task) {
     // 1. Haupt-Container: wa-card
@@ -69,6 +239,11 @@ function renderTasks() {
         taskCounter.setAttribute('variant', openTasksCount > 0 ? 'warning' : 'info');
     }
 
+    if (!isLoggedIn) {
+        taskListContainer.innerHTML = '';
+        return;
+    }
+
     // 2. Aufgaben filtern
     let tasksToRender = [];
     if (currentFilter === 'open') {
@@ -110,6 +285,8 @@ function renderTasks() {
 // A. READ: Aufgaben abrufen und rendern
 // ===================================
 async function fetchTasks() {
+    if (!isLoggedIn) return
+
     taskListContainer.innerHTML = `<div class="loading"><wa-spinner size="large"></wa-spinner><p>Aufgaben werden geladen...</p></div>`;
     
     try {
@@ -129,6 +306,8 @@ async function fetchTasks() {
 // FILTER LOGIK
 // ===================================
 function setActiveFilter(filter, button) {
+    if (!isLoggedIn) return
+
     currentFilter = filter;
 
     [filterAllButton, filterOpenButton, filterCompletedButton].forEach(btn => {
@@ -145,7 +324,8 @@ function setActiveFilter(filter, button) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    fetchTasks();
+    checkLoginStatus();
+    //fetchTasks();
     
     if (filterAllButton) filterAllButton.addEventListener('click', () => setActiveFilter('all', filterAllButton));
     if (filterOpenButton) filterOpenButton.addEventListener('click', () => setActiveFilter('open', filterOpenButton));
@@ -157,6 +337,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===================================
 addTaskForm.addEventListener('submit', async (e) => {
     e.preventDefault(); 
+    if (!isLoggedIn) return;
+
     const title = taskTitleInput.value.trim();
     if (!title) return;
 
@@ -191,6 +373,8 @@ addTaskForm.addEventListener('submit', async (e) => {
 // C. UPDATE: Status umschalten
 // ===================================
 async function toggleTask(id) {
+    if (!isLoggedIn) return;
+
     try {
         const response = await fetch('api.php?action=toggle', {
             method: 'PUT',
@@ -217,6 +401,8 @@ async function toggleTask(id) {
 // D. DELETE: Aufgabe löschen
 // ===================================
 async function deleteTask(id) {
+    if (!isLoggedIn) return;
+
     try {
         const response = await fetch('api.php', {
             method: 'DELETE',
@@ -305,3 +491,58 @@ function handleCancelClick(event) {
     currentTaskIdToDelete = null;
     console.log(`Deletion cancelled (direct listener).`);
 }
+
+// DOM-Elemente abrufen
+const htmlElement = document.documentElement; // Das <html> Tag
+const themeToggleButton = document.getElementById('themeToggleButton');
+const themeIcon = document.getElementById('themeIcon');
+
+// Funktion zum Setzen des Themas
+function setTheme(isDark) {
+    if (isDark) {
+        // Auf Dark Mode umschalten
+        htmlElement.classList.remove('wa-light');
+        htmlElement.classList.add('wa-dark');
+        
+        // Button-Text/Icon anpassen (zeigt an, dass man auf Hell umschalten kann)
+        themeIcon.classList.remove('fa-sun');
+        themeIcon.classList.add('fa-moon');
+        themeToggleButton.textContent = 'Dunkel';
+        themeToggleButton.prepend(themeIcon); // Icon wieder einfügen
+        
+        // Zustand speichern
+        localStorage.setItem('taskManagerTheme', 'dark');
+    } else {
+        // Auf Light Mode umschalten
+        htmlElement.classList.remove('wa-dark');
+        htmlElement.classList.add('wa-light');
+        
+        // Button-Text/Icon anpassen (zeigt an, dass man auf Dunkel umschalten kann)
+        themeIcon.classList.remove('fa-moon');
+        themeIcon.classList.add('fa-sun');
+        themeToggleButton.textContent = 'Hell';
+        themeToggleButton.prepend(themeIcon); // Icon wieder einfügen
+        
+        // Zustand speichern
+        localStorage.setItem('taskManagerTheme', 'light');
+    }
+}
+
+// Beim Laden der Seite das gespeicherte Thema anwenden (oder Standard: light)
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('taskManagerTheme');
+    if (savedTheme === 'dark') {
+        setTheme(true); // Dunkel-Modus laden
+    } else {
+        setTheme(false); // Sicherstellen, dass Light-Modus aktiv ist
+    }
+});
+
+// Event Listener für den Theme-Toggle-Button
+themeToggleButton.addEventListener('click', () => {
+    // Prüfen, ob aktuell wa-dark gesetzt ist
+    const isCurrentlyDark = htmlElement.classList.contains('wa-dark');
+    
+    // Thema umschalten
+    setTheme(!isCurrentlyDark);
+});
