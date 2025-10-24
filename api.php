@@ -40,6 +40,37 @@ function get_current_user_id() {
 }
 
 // =================================================================
+// TAG-VERWALTUNGSFUNKTIONEN
+// =================================================================
+/**
+ * Liefert tag-id zurück (existierend) oder legt Tag an und liefert ID.
+ */
+function get_or_create_tag(PDO $pdo, int $user_id, string $tag_name) {
+    $tag_name = trim($tag_name);
+    if ($tag_name === '') return null;
+
+    // Versuche vorhandenen Tag zu finden
+    $stmt = $pdo->prepare("SELECT id FROM tags WHERE user_id = ? AND name = ?");
+    $stmt->execute([$user_id, $tag_name]);
+    $row = $stmt->fetchColumn();
+    if ($row !== false) return (int)$row;
+
+    // Anlegen
+    $stmt = $pdo->prepare("INSERT INTO tags (user_id, name) VALUES (?, ?)");
+    $stmt->execute([$user_id, $tag_name]);
+    return (int)$pdo->lastInsertId();
+}
+
+/**
+ * Liefert Array von Tags (name,id) für einen Task
+ */
+function get_tags_for_task(PDO $pdo, int $task_id) {
+    $stmt = $pdo->prepare("SELECT tags.id, tags.name FROM tags JOIN task_tags tt ON tags.id = tt.tag_id WHERE tt.task_id = ?");
+    $stmt->execute([$task_id]);
+    return $stmt->fetchAll();
+}
+
+// =================================================================
 // 1. LOGIK: Authentifizierung (Registration, Login, Logout)
 // =================================================================
 
@@ -129,6 +160,20 @@ if ($request_method === 'POST') {
     exit;
 }
 
+if ($request_method === 'GET' && $action === 'tags') {
+    $user_id = get_current_user_id();
+    if (!$user_id) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Authentication required.']);
+        exit;
+    }
+    $stmt = $pdo->prepare("SELECT id, name FROM tags WHERE user_id = ? ORDER BY name ASC");
+    $stmt->execute([$user_id]);
+    $tags = $stmt->fetchAll();
+    echo json_encode($tags);
+    exit;
+}
+
 // =================================================================
 // 2. LOGIK: Autorisierungs-Check für Task-CRUD
 // =================================================================
@@ -149,10 +194,56 @@ switch ($request_method) {
     
     // A. READ (Aufgaben abrufen)
     case 'GET':
-        // WICHTIG: Filtere nach der user_id
-        $stmt = $pdo->prepare("SELECT id, title, is_completed FROM tasks WHERE user_id = ? ORDER BY is_completed ASC, created_at DESC");
-        $stmt->execute([$user_id]);
-        $tasks = $stmt->fetchAll();
+        $tag_id = isset($_GET['tag_id']) ? (int)$_GET['tag_id'] : null;
+        $tag_name = isset($_GET['tag']) ? trim($_GET['tag']) : null;
+
+        if ($tag_id) {
+            $stmt = $pdo->prepare("
+                SELECT t.id, t.title, t.is_completed,
+                       GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
+                FROM tasks t
+                LEFT JOIN task_tags tt ON t.id = tt.task_id
+                LEFT JOIN tags ON tags.id = tt.tag_id
+                WHERE t.user_id = ? AND t.id IN (SELECT task_id FROM task_tags WHERE tag_id = ?)
+                GROUP BY t.id
+                ORDER BY t.is_completed ASC, t.created_at DESC
+            ");
+            $stmt->execute([$user_id, $tag_id]);
+        } elseif ($tag_name) {
+            $stmt = $pdo->prepare("
+                SELECT t.id, t.title, t.is_completed,
+                       GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
+                FROM tasks t
+                LEFT JOIN task_tags tt ON t.id = tt.task_id
+                LEFT JOIN tags ON tags.id = tt.tag_id
+                WHERE t.user_id = ? AND t.id IN (
+                    SELECT tt2.task_id FROM task_tags tt2 JOIN tags tg ON tg.id = tt2.tag_id WHERE tg.user_id = ? AND tg.name = ?
+                )
+                GROUP BY t.id
+                ORDER BY t.is_completed ASC, t.created_at DESC
+            ");
+            $stmt->execute([$user_id, $user_id, $tag_name]);
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT t.id, t.title, t.is_completed,
+                       GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
+                FROM tasks t
+                LEFT JOIN task_tags tt ON t.id = tt.task_id
+                LEFT JOIN tags ON tags.id = tt.tag_id
+                WHERE t.user_id = ?
+                GROUP BY t.id
+                ORDER BY t.is_completed ASC, t.created_at DESC
+            ");
+            $stmt->execute([$user_id]);
+        }
+
+        $rows = $stmt->fetchAll();
+        // map tags string to array
+        $tasks = array_map(function($r){
+            $r['tags'] = $r['tags'] ? array_values(array_filter(array_map('trim', explode(',', $r['tags'])))) : [];
+            return $r;
+        }, $rows);
+
         echo json_encode($tasks);
         break;
 
@@ -160,10 +251,34 @@ switch ($request_method) {
     case 'POST':
         if (isset($input['title']) && !empty(trim($input['title']))) {
             $title = trim($input['title']);
-            // WICHTIG: Füge die user_id beim Erstellen ein
-            $stmt = $pdo->prepare("INSERT INTO tasks (title, is_completed, user_id) VALUES (?, 0, ?)");
-            $stmt->execute([$title, $user_id]);
-            echo json_encode(['success' => true, 'id' => $pdo->lastInsertId(), 'title' => $title]);
+            $tags_input = $input['tags'] ?? []; // optional: array of tag names
+
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("INSERT INTO tasks (title, is_completed, user_id) VALUES (?, 0, ?)");
+                $stmt->execute([$title, $user_id]);
+                $task_id = (int)$pdo->lastInsertId();
+
+                // Tags verarbeiten (falls vorhanden)
+                if (is_array($tags_input) && count($tags_input) > 0) {
+                    $insertRelation = $pdo->prepare("INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)");
+                    foreach ($tags_input as $tname) {
+                        $tname = trim((string)$tname);
+                        if ($tname === '') continue;
+                        $tag_id = get_or_create_tag($pdo, $user_id, $tname);
+                        if ($tag_id) {
+                            $insertRelation->execute([$task_id, $tag_id]);
+                        }
+                    }
+                }
+
+                $pdo->commit();
+                echo json_encode(['success' => true, 'id' => $task_id, 'title' => $title]);
+            } catch (\Exception $e) {
+                $pdo->rollBack();
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to create task.']);
+            }
         } else {
             http_response_code(400);
             echo json_encode(['error' => 'Title is required.']);
@@ -175,12 +290,11 @@ switch ($request_method) {
         if ($action === 'toggle' && isset($input['id'])) {
             $id = $input['id'];
 
-            // WICHTIG: Stelle sicher, dass die Aufgabe dem angemeldeten Benutzer gehört
             $stmt = $pdo->prepare("SELECT is_completed FROM tasks WHERE id = ? AND user_id = ?");
             $stmt->execute([$id, $user_id]);
             $current_status = $stmt->fetchColumn();
 
-            if ($current_status !== false) { // Finde die Aufgabe und sie gehört dem Benutzer
+            if ($current_status !== false) {
                 $new_status = $current_status == 0 ? 1 : 0;
                 $stmt = $pdo->prepare("UPDATE tasks SET is_completed = ? WHERE id = ? AND user_id = ?");
                 $stmt->execute([$new_status, $id, $user_id]);
@@ -199,11 +313,10 @@ switch ($request_method) {
     case 'DELETE':
         if (isset($input['id'])) {
             $id = $input['id'];
-            // WICHTIG: Stelle sicher, dass die Aufgabe dem angemeldeten Benutzer gehört
             $stmt = $pdo->prepare("DELETE FROM tasks WHERE id = ? AND user_id = ?");
             $stmt->execute([$id, $user_id]);
 
-            if ($stmt->rowCount() > 0) { // Überprüfe, ob eine Zeile gelöscht wurde
+            if ($stmt->rowCount() > 0) {
                 echo json_encode(['success' => true, 'id' => $id]);
             } else {
                 http_response_code(404);

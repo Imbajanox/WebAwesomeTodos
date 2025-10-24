@@ -22,6 +22,17 @@ CREATE TABLE tasks (
   is_completed TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE users (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL, -- Für sicheres Speichern des Passworts
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE tasks
+ADD COLUMN user_id INT UNSIGNED NOT NULL,
+ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 ```
 
 2. Configure DB credentials in `api.php`:

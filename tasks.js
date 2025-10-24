@@ -27,6 +27,9 @@ const registerButton = document.getElementById('registerButton');
 const logoutButton = document.getElementById('logoutButton');
 const toggleAuthViewLink = document.getElementById('toggleAuthView');
 
+const taskTagsInput = document.getElementById('taskTags'); // NEU
+const tagFilterBar = document.getElementById('tagFilterBar'); // NEU
+
 let allTasks = [];
 let currentFilter = 'all'; // Standardfilter
 let isLoggedIn = false;
@@ -51,6 +54,7 @@ function updateView(loggedIn, username = '') {
         userInfo.style.display = 'flex';
         usernameDisplay.textContent = username;
         fetchTasks(); // Aufgaben nur laden, wenn eingeloggt
+        fetchTagsAndRenderBar();
     } else {
         authView.style.display = 'block';
         taskManagerView.style.display = 'none';
@@ -205,6 +209,21 @@ function createTaskCard(task) {
     titleSpan.className = 'task-title';
     titleSpan.textContent = task.title; // Füllt den Text ein
 
+    if (Array.isArray(task.tags) && task.tags.length > 0) {
+        const tagsWrap = document.createElement('div');
+        tagsWrap.style.display = 'flex';
+        tagsWrap.style.gap = '0.4rem';
+        tagsWrap.style.marginLeft = '0';
+        task.tags.forEach(tn => {
+            const badge = document.createElement('wa-badge');
+            badge.textContent = tn;
+            badge.setAttribute('variant', 'neutral');
+            badge.style.fontSize = '0.75rem';
+            tagsWrap.appendChild(badge);
+        });
+        titleSpan.appendChild(tagsWrap);
+    }
+
     // 4. Löschen Button erstellen
     const deleteButton = document.createElement('wa-button');
     deleteButton.innerHTML = '<i class="fas fa-trash-can"></i>'; 
@@ -290,12 +309,13 @@ async function fetchTasks() {
     taskListContainer.innerHTML = `<div class="loading"><wa-spinner size="large"></wa-spinner><p>Aufgaben werden geladen...</p></div>`;
     
     try {
-        const response = await fetch('api.php');
+        // Optionaler Tag-Filter: wenn currentTag gesetzt, senden wir tag param (verwende currentTagName)
+        const url = currentTagName ? `api.php?tag=${encodeURIComponent(currentTagName)}` : 'api.php';
+        const response = await fetch(url);
         const tasks = await response.json();
-        allTasks = tasks; 
+        allTasks = tasks;
 
-        renderTasks(); 
-
+        renderTasks();
     } catch (error) {
         taskListContainer.innerHTML = `<wa-callout variant="danger">Fehler beim Laden der Aufgaben.</wa-callout>`;
         console.error('Fetch error:', error);
@@ -305,21 +325,96 @@ async function fetchTasks() {
 // ===================================
 // FILTER LOGIK
 // ===================================
+
+let currentTagName = ''; // leer = kein Tag-Filter
+
+async function fetchTagsAndRenderBar() {
+    if (!isLoggedIn) return;
+    try {
+        const resp = await fetch('api.php?action=tags');
+        if (!resp.ok) return;
+        const tags = await resp.json();
+        renderTagFilterBar(tags);
+    } catch (e) {
+        console.error('fetch tags error', e);
+    }
+}
+
+function renderTagFilterBar(tags) {
+    if (!tagFilterBar) return;
+    tagFilterBar.innerHTML = '';
+
+    const allBtn = document.createElement('wa-button');
+    allBtn.textContent = 'Alle Tags';
+    allBtn.setAttribute('size', 'small');
+    allBtn.setAttribute('variant', currentTagName ? 'neutral' : 'primary');
+    allBtn.addEventListener('click', () => {
+        currentTagName = '';
+        setActiveFilter('all', filterAllButton);
+        fetchTasks();
+    });
+    tagFilterBar.appendChild(allBtn);
+
+    tags.forEach(t => {
+        const b = document.createElement('wa-button');
+        b.textContent = t.name;
+        b.setAttribute('size', 'small');
+        b.setAttribute('variant', currentTagName === t.name ? 'primary' : 'neutral');
+        b.addEventListener('click', () => {
+            currentTagName = t.name;
+            setActiveFilter(currentTagName, b);
+            fetchTasks();
+        });
+        tagFilterBar.appendChild(b);
+    });
+
+    console.log('Tag filter bar rendered with tags:', tags);
+}
+
+let activeTagButton = null;
+
 function setActiveFilter(filter, button) {
     if (!isLoggedIn) return
 
-    currentFilter = filter;
+    // Wenn der neue Filter ein Tag-Filter ist:
+    if (filter !== 'all' && !['open', 'completed'].includes(filter)) {
+        // 1. Letzten aktiven TAG-Button auf neutral setzen (falls vorhanden)
+        if (activeTagButton) {
+            activeTagButton.setAttribute('variant', 'neutral');
+            activeTagButton.removeAttribute('active');
+        }
+        
+        // 2. Den neuen Tag-Button als aktiv speichern und markieren
+        if (button) {
+            button.setAttribute('variant', 'primary');
+            button.setAttribute('active', '');
+            activeTagButton = button;
+        }
+        // 3. Status-Filter-Buttons ignorieren (sie haben ihre eigene Logik)
 
-    [filterAllButton, filterOpenButton, filterCompletedButton].forEach(btn => {
-        if (btn) btn.setAttribute('variant', 'neutral');
-        if (btn) btn.removeAttribute('active');
-    });
+    } else {
+        // Wenn es ein Status-Filter ist ('all', 'open', 'completed'):
+        
+        // 1. Letzten aktiven TAG-Button auf neutral setzen, da der Status-Filter aktiv wird
+        if (activeTagButton) {
+            activeTagButton.setAttribute('variant', 'neutral');
+            activeTagButton.removeAttribute('active');
+            activeTagButton = null; // Tag-Button ist nicht mehr der aktive Filter
+        }
+        
+        // 2. Alle Status-Buttons auf neutral setzen (wie in Ihrem Originalcode)
+        [filterAllButton, filterOpenButton, filterCompletedButton].forEach(btn => {
+             if (btn) btn.setAttribute('variant', 'neutral');
+             if (btn) btn.removeAttribute('active');
+        });
 
-    if (button) {
-        button.setAttribute('variant', 'primary');
-        button.setAttribute('active', '');
+        if (button) {
+            button.setAttribute('variant', 'primary');
+            button.setAttribute('active', '');
+        }
     }
 
+    currentFilter = filter;
     renderTasks();
 }
 
@@ -342,17 +437,21 @@ addTaskForm.addEventListener('submit', async (e) => {
     const title = taskTitleInput.value.trim();
     if (!title) return;
 
+    const tagsRaw = taskTagsInput ? taskTagsInput.value : '';
+    const tags = tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
     addButton.setAttribute('loading', ''); 
     
     try {
         const response = await fetch('api.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: title })
+            body: JSON.stringify({ title: title, tags: tags })
         });
 
         if (response.ok) {
             taskTitleInput.value = '';
+            await fetchTagsAndRenderBar();
             if (currentFilter !== 'all') {
                 setActiveFilter('all', filterAllButton); 
             } else {
