@@ -42,14 +42,22 @@ let csrfToken = ''; // CSRF token for requests
 
 /**
  * Fetches CSRF token from the server
+ * If this fails, user will get errors on mutating operations
  */
 async function fetchCsrfToken() {
     try {
         const response = await fetch('api.php?action=csrf');
+        if (!response.ok) {
+            throw new Error('Failed to fetch CSRF token');
+        }
         const data = await response.json();
         csrfToken = data.csrf_token || '';
+        if (!csrfToken) {
+            console.error('CSRF token is empty - mutating operations may fail');
+        }
     } catch (error) {
         console.error('Failed to fetch CSRF token:', error);
+        console.error('Mutating operations (create, update, delete) will fail without CSRF token');
     }
 }
 

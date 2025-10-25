@@ -4,11 +4,12 @@
 // =================================================================
 
 // Configure secure session cookie parameters
+// Note: 'secure' flag is set based on HTTPS detection for local development compatibility
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
     'domain' => '',
-    'secure' => true,      // Only send cookie over HTTPS
+    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',  // Only send over HTTPS when available
     'httponly' => true,    // Prevent JavaScript access to session cookie
     'samesite' => 'Strict' // CSRF protection via SameSite
 ]);
@@ -102,12 +103,13 @@ function validate_input_length($value, $maxLength, $fieldName) {
 // =================================================================
 /**
  * Liefert tag-id zurück (existierend) oder legt Tag an und liefert ID.
+ * Returns null if tag is invalid (empty or too long).
  */
 function get_or_create_tag(PDO $pdo, int $user_id, string $tag_name) {
     $tag_name = trim($tag_name);
     if ($tag_name === '') return null;
     
-    // Validate tag name length (max 100 chars per schema)
+    // Validate tag name length (max 100 chars per schema) - silently skip if too long
     if (mb_strlen($tag_name) > 100) {
         return null; // Skip tags that are too long
     }
@@ -343,7 +345,7 @@ switch ($request_method) {
                     foreach ($tags_input as $tname) {
                         $tname = trim((string)$tname);
                         if ($tname === '') continue;
-                        // Validate tag name length (validation happens in get_or_create_tag)
+                        // Note: Invalid tags (too long) are silently skipped by get_or_create_tag
                         $tag_id = get_or_create_tag($pdo, $user_id, $tname);
                         if ($tag_id) {
                             $insertRelation->execute([$task_id, $tag_id]);
