@@ -2,7 +2,23 @@
 // =================================================================
 // PHP KONFIGURATION & DATENBANKVERBINDUNG
 // =================================================================
+
+// Configure secure session cookie parameters
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => '',
+    'secure' => true,      // Only send cookie over HTTPS
+    'httponly' => true,    // Prevent JavaScript access to session cookie
+    'samesite' => 'Strict' // CSRF protection via SameSite
+]);
+
 session_start();
+
+// Generate CSRF token if not exists
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $host = '127.0.0.1'; 
 $db   = 'task_manager_wa';
@@ -31,12 +47,54 @@ $input = json_decode(file_get_contents('php://input'), true);
 $request_method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
+// Special endpoint to get CSRF token
+if ($request_method === 'GET' && $action === 'csrf') {
+    echo json_encode(['csrf_token' => $_SESSION['csrf_token']]);
+    exit;
+}
+
 /**
  * Überprüft, ob ein Benutzer angemeldet ist und gibt die user_id zurück.
  * @return int|null Die ID des angemeldeten Benutzers oder null.
  */
 function get_current_user_id() {
     return $_SESSION['user_id'] ?? null;
+}
+
+/**
+ * Validates CSRF token for mutating requests (POST, PUT, DELETE)
+ * @return bool True if token is valid or not required, false otherwise
+ */
+function validate_csrf_token() {
+    // Only validate for mutating requests
+    $method = $_SERVER['REQUEST_METHOD'];
+    if (!in_array($method, ['POST', 'PUT', 'DELETE'])) {
+        return true; // GET requests don't need CSRF validation
+    }
+    
+    // Check for CSRF token in header
+    $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    $session_token = $_SESSION['csrf_token'] ?? '';
+    
+    return hash_equals($session_token, $token);
+}
+
+/**
+ * Validates input length to prevent database errors
+ * @param string $value The value to validate
+ * @param int $maxLength Maximum allowed length
+ * @param string $fieldName Field name for error message
+ * @return array ['valid' => bool, 'error' => string|null]
+ */
+function validate_input_length($value, $maxLength, $fieldName) {
+    $trimmed = trim($value);
+    if (mb_strlen($trimmed) > $maxLength) {
+        return [
+            'valid' => false, 
+            'error' => "$fieldName exceeds maximum length of $maxLength characters."
+        ];
+    }
+    return ['valid' => true, 'error' => null];
 }
 
 // =================================================================
@@ -48,6 +106,11 @@ function get_current_user_id() {
 function get_or_create_tag(PDO $pdo, int $user_id, string $tag_name) {
     $tag_name = trim($tag_name);
     if ($tag_name === '') return null;
+    
+    // Validate tag name length (max 100 chars per schema)
+    if (mb_strlen($tag_name) > 100) {
+        return null; // Skip tags that are too long
+    }
 
     // Versuche vorhandenen Tag zu finden
     $stmt = $pdo->prepare("SELECT id FROM tags WHERE user_id = ? AND name = ?");
@@ -186,6 +249,13 @@ if (!$user_id) {
     exit;
 }
 
+// CSRF validation for mutating requests (POST, PUT, DELETE)
+if (!validate_csrf_token()) {
+    http_response_code(403); // Forbidden
+    echo json_encode(['error' => 'CSRF token validation failed.']);
+    exit;
+}
+
 // =================================================================
 // 3. LOGIK: CRUD-Funktionen als API-Endpunkte
 // =================================================================
@@ -252,6 +322,14 @@ switch ($request_method) {
         if (isset($input['title']) && !empty(trim($input['title']))) {
             $title = trim($input['title']);
             $tags_input = $input['tags'] ?? []; // optional: array of tag names
+            
+            // Validate title length (max 255 chars per schema)
+            $titleValidation = validate_input_length($title, 255, 'Title');
+            if (!$titleValidation['valid']) {
+                http_response_code(400);
+                echo json_encode(['error' => $titleValidation['error']]);
+                break;
+            }
 
             $pdo->beginTransaction();
             try {
@@ -265,6 +343,7 @@ switch ($request_method) {
                     foreach ($tags_input as $tname) {
                         $tname = trim((string)$tname);
                         if ($tname === '') continue;
+                        // Validate tag name length (validation happens in get_or_create_tag)
                         $tag_id = get_or_create_tag($pdo, $user_id, $tname);
                         if ($tag_id) {
                             $insertRelation->execute([$task_id, $tag_id]);
