@@ -26,8 +26,8 @@
 						<i class="fas fa-clock-rotate-left" slot="start"></i> Changelog
 					</wa-button>
 				</a>
-				<wa-button id="themeToggleButton" variant="neutral" size="small" style="margin-left: 0.5rem;">
-					<i class="fas fa-sun" slot="start" id="themeIcon"></i> Hell
+				<wa-button id="themeToggleButton" variant="neutral" size="small" style="margin-right: 0.5rem;">
+				<wa-icon name="sun" label="Sun" id="themeIcon"></wa-icon>
 				</wa-button>
 			</div>
 			
@@ -67,6 +67,12 @@
 					<p style="margin-top: 0.5rem; text-align: center;">
 						<a href="changelog.php" style="font-size: 0.9rem;"><i class="fas fa-clock-rotate-left"></i>&nbsp;Changelog ansehen</a>
 					</p>
+					<div style="display: flex; justify-content: center;">
+						<wa-button id="themeToggleButtonAuth" variant="neutral" size="small" style="display: flex; justify-content: center; align-items: center;">
+							
+							<wa-icon name="sun" label="Sun" id="themeIcon"></wa-icon>
+						</wa-button>
+					</div>
 				</wa-card>
 			</div>
 			<div id="taskManagerView" style="display: none;"	>
