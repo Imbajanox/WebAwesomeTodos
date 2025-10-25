@@ -1,5 +1,5 @@
 // =================================================================
-// 3. FRONTEND LOGIK (AJAX/FETCH) - ANGEPASST MIT FILTER/ZÄHLER
+// 3. FRONTEND LOGIK (AJAX/FETCH)
 // =================================================================
 
 const taskListContainer = document.getElementById('taskListContainer');
@@ -17,7 +17,6 @@ const filterCompletedButton = document.getElementById('filterCompleted');
 const sortBySelect = document.getElementById('sortBy');
 const filterPrioritySelect = document.getElementById('filterPriority');
 
-// NEU: Auth-Elemente
 const taskManagerView = document.getElementById('taskManagerView');
 const authView = document.getElementById('authView');
 const userInfo = document.getElementById('userInfo');
@@ -36,12 +35,12 @@ const taskTagsInput = document.getElementById('taskTags'); // NEU
 const tagFilterBar = document.getElementById('tagFilterBar'); // NEU
 
 let allTasks = [];
-let currentFilter = 'all'; // Standardfilter
+let currentFilter = 'all';
 let currentSortBy = 'default';
 let currentPriorityFilter = 'all';
 let isLoggedIn = false;
 let currentUsername = '';
-let csrfToken = ''; // CSRF token for requests
+let csrfToken = '';
 
 // =================================================================
 // CSRF TOKEN MANAGEMENT
@@ -394,6 +393,42 @@ function formatDate(dateString) {
 /**
  * Filtert die Aufgaben basierend auf dem aktuellen Filter und rendert sie neu.
  */
+function getTaskTags(task) {
+    if (!task || task.tags == null) return [];
+    // already an array of strings or objects
+    if (Array.isArray(task.tags)) {
+        return task.tags
+            .map(t => {
+                if (typeof t === 'string') return t.trim();
+                if (t && typeof t === 'object') return (t.name || t.value || String(t)).toString().trim();
+                return String(t).trim();
+            })
+            .filter(Boolean);
+    }
+    // string like "Tag1,Tag2"
+    if (typeof task.tags === 'string') {
+        return task.tags.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    // object-ish (e.g. {0: 'a', 1: 'b'} or [{name: 'a'}])
+    if (typeof task.tags === 'object') {
+        try {
+            // Handle array-like objects and arrays of objects with 'name'
+            const vals = Object.values(task.tags);
+            return vals
+                .map(v => {
+                    if (typeof v === 'string') return v.trim();
+                    if (v && typeof v === 'object') return (v.name || v.value || String(v)).toString().trim();
+                    return String(v).trim();
+                })
+                .filter(Boolean);
+        } catch (e) {
+            return [];
+        }
+    }
+    // fallback
+    return [];
+}
+
 function renderTasks() {
     const openTasksCount = allTasks.filter(t => t.is_completed == 0).length;
 
@@ -408,6 +443,7 @@ function renderTasks() {
         return;
     }
 
+    
     // 2. Aufgaben filtern
     let tasksToRender = [];
     if (currentFilter === 'open') {
@@ -417,6 +453,22 @@ function renderTasks() {
     } else {
         tasksToRender = allTasks; // 'all'
     }
+
+    if (currentTagNames && currentTagNames.length > 0) {
+        // Normalisiere Filter-Tags zu flachen Lowercase-Strings
+        const filterTags = (currentTagNames.flat ? currentTagNames.flat(Infinity) : flattenDeep(currentTagNames))
+            .map(t => t == null ? '' : String(t).trim().toLowerCase())
+            .filter(Boolean);
+    
+        tasksToRender = tasksToRender.filter(task => {
+            const taskTags = getTaskTags(task).map(t => String(t).trim().toLowerCase()); // getTaskTags muss vorhanden sein
+            console.log('Filtering task', task.id, 'taskTags:', taskTags, 'filterTags:', filterTags);
+            // OR-Logik: task muss mindestens einen der ausgewählten Tags enthalten
+            return filterTags.some(t => taskTags.includes(t));
+        });
+    }
+    console.log('Tasks after tag filtering:', tasksToRender);
+
     
     // Filter by priority
     if (currentPriorityFilter !== 'all') {
@@ -484,12 +536,11 @@ async function fetchTasks() {
     taskListContainer.innerHTML = `<div class="loading"><wa-spinner size="large"></wa-spinner><p>Aufgaben werden geladen...</p></div>`;
     
     try {
-        // Optionaler Tag-Filter: wenn currentTag gesetzt, senden wir tag param (verwende currentTagName)
-        const url = currentTagName ? `api.php?tag=${encodeURIComponent(currentTagName)}` : 'api.php';
+        const useServerFilter = currentTagNames.length === 0 && currentTagName;
+        const url = useServerFilter ? `api.php?tag=${encodeURIComponent(currentTagName)}` : 'api.php';
         const response = await fetch(url);
         const tasks = await response.json();
         allTasks = tasks;
-
         renderTasks();
     } catch (error) {
         taskListContainer.innerHTML = `<wa-callout variant="danger">Fehler beim Laden der Aufgaben.</wa-callout>`;
@@ -502,6 +553,7 @@ async function fetchTasks() {
 // ===================================
 
 let currentTagName = ''; // leer = kein Tag-Filter
+let currentTagNames = []; // leer = kein Tag-Filter (Multi-Select)
 
 async function fetchTagsAndRenderBar() {
     if (!isLoggedIn) return;
@@ -519,31 +571,79 @@ function renderTagFilterBar(tags) {
     if (!tagFilterBar) return;
     tagFilterBar.innerHTML = '';
 
-    const allBtn = document.createElement('wa-button');
-    allBtn.textContent = 'Alle Tags';
-    allBtn.setAttribute('size', 'small');
-    allBtn.setAttribute('variant', currentTagName ? 'neutral' : 'primary');
-    allBtn.addEventListener('click', () => {
-        currentTagName = '';
-        setActiveFilter('all', filterAllButton);
+    const select = document.createElement('wa-select');
+    select.id = 'tagFilterSelect';
+    select.setAttribute('size', 'small');
+    select.setAttribute('multiple', '');   // Multi-Select aktivieren
+    select.setAttribute('with-clear', ''); // Clear-Button, wenn WebAwesome das unterstützt
+    select.style.minWidth = '160px';
+    select.setAttribute('placeholder', 'Tags');
+
+    // Optional: "Alle Tags" als leere Option (sichtbar wenn nichts ausgewählt)
+    // const allOption = document.createElement('wa-option');
+    // allOption.value = '';
+    // allOption.textContent = 'Alle Tags';
+    // // markieren wenn kein Tag ausgewählt
+    // if (!currentTagNames.length && !currentTagName) {
+    //     allOption.setAttribute('selected', '');
+    // }
+    // select.appendChild(allOption);
+
+    // eine wa-option pro Tag
+    tags.forEach(t => {
+        const opt = document.createElement('wa-option');
+        opt.value = t.name;
+        opt.textContent = t.name;
+        // setzen, wenn aktuell gewählt (initialisierung)
+        if (currentTagNames.includes(t.name) || (currentTagNames.length === 0 && currentTagName === t.name)) {
+            opt.setAttribute('selected', '');
+        }
+        select.appendChild(opt);
+    });
+
+    // change handler: wa-select sollte das selected-Attribut bei wa-option aktualisieren.
+    select.addEventListener('change', () => {
+        // Versuche mehrere möglichen Quellen (wa-option[selected], select.value, select.selectedOptions)
+        let selected = Array.from(select.querySelectorAll('wa-option[selected]')).map(o => o.value);
+    
+        if (!selected.length) {
+            if (Array.isArray(select.value)) {
+                selected = select.value.slice();
+            } else if (select.value) {
+                selected = [select.value];
+            } else if (select.selectedOptions) {
+                selected = Array.from(select.selectedOptions).map(o => o.value);
+            } else if (event && event.detail && event.detail.value) {
+                // manche web-components liefern detail.value
+                selected = Array.isArray(event.detail.value) ? event.detail.value.slice() : [event.detail.value];
+            }
+        }
+    
+        // Flachklappen, in Strings umwandeln, trimmen und leere Einträge entfernen
+        selected = selected.flat ? selected.flat(Infinity) : flattenDeep(selected);
+        selected = selected.map(v => {
+            if (v == null) return '';
+            if (typeof v === 'string') return v.trim();
+            if (typeof v === 'object') return (v.name ?? v.value ?? String(v)).toString().trim();
+            return String(v).trim();
+        }).filter(Boolean);
+    
+        currentTagNames = selected;
+        currentTagName = currentTagNames.length === 1 ? currentTagNames[0] : '';
+    
+        console.log('Normalized selected tags:', JSON.stringify(currentTagNames));
+        setActiveFilter('all', null);
         fetchTasks();
     });
-    tagFilterBar.appendChild(allBtn);
+    
+    // Hilfsfunktion falls .flat nicht verfügbar (alt. Browser)
+    function flattenDeep(arr) {
+        return Array.isArray(arr) ? arr.reduce((acc, val) => acc.concat(Array.isArray(val) ? flattenDeep(val) : val), []) : [arr];
+    }
 
-    tags.forEach(t => {
-        const b = document.createElement('wa-button');
-        b.textContent = t.name;
-        b.setAttribute('size', 'small');
-        b.setAttribute('variant', currentTagName === t.name ? 'primary' : 'neutral');
-        b.addEventListener('click', () => {
-            currentTagName = t.name;
-            setActiveFilter(currentTagName, b);
-            fetchTasks();
-        });
-        tagFilterBar.appendChild(b);
-    });
+    tagFilterBar.appendChild(select);
 
-    console.log('Tag filter bar rendered with tags:', tags);
+    console.log('Tag filter multi-select (wa-select) gerendert mit tags:', tags);
 }
 
 let activeTagButton = null;
@@ -616,6 +716,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+const exportIcsButton = document.getElementById('exportIcs');
+
+if (exportIcsButton) {
+    exportIcsButton.addEventListener('click', async () => {
+        if (!isLoggedIn) {
+            showValidationError('Bitte zuerst einloggen, um Ihre Todos zu exportieren.');
+            return;
+        }
+
+        // Baue die URL mit aktuellen Filtern (entsprechend serverseitigem Parser)
+        let url = `api.php?export=ics&filter=${encodeURIComponent(currentFilter || 'all')}&priority=${encodeURIComponent(currentPriorityFilter || 'all')}`;
+        if (currentTagName) {
+            url += `&tag=${encodeURIComponent(currentTagName)}`;
+        }
+
+        try {
+            exportIcsButton.setAttribute('loading', '');
+            const resp = await fetch(url, { credentials: 'include' });
+            if (!resp.ok) {
+                showValidationError('Fehler beim Erstellen der Kalenderdatei.');
+                return;
+            }
+            const text = await resp.text();
+            const blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'webawesometodos_export.ics';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(a.href);
+        } catch (err) {
+            console.error(err);
+            showValidationError('Netzwerk- oder Serverfehler beim Export.');
+        } finally {
+            exportIcsButton.removeAttribute('loading');
+        }
+    });
+}
 
 // ===================================
 // B. CREATE: Neue Aufgabe hinzufügen
@@ -1043,4 +1183,175 @@ themeToggleButtonAuth.addEventListener('click', () => {
     
     // Thema umschalten
     setTheme(!isCurrentlyDark);
+});
+
+
+// Änderungen: neue Funktionen getFilteredTasks() und printCurrentTasks(), plus Event-Handler für #printView
+// (Füge diese Funktionen in deine bestehende tasks.js, z.B. nahe anderen Hilfsfunktionen / am Ende des Datei-Inhalts)
+
+/**
+ * Liefert die aktuell sichtbaren Aufgaben basierend auf globalen Filtern:
+ * currentFilter, currentPriorityFilter, currentSortBy, currentTagName, allTasks
+ */
+function getFilteredTasks() {
+    if (!Array.isArray(allTasks)) return [];
+
+    let tasksToRender = [];
+
+    if (currentFilter === 'open') {
+        tasksToRender = allTasks.filter(task => task.is_completed == 0);
+    } else if (currentFilter === 'completed') {
+        tasksToRender = allTasks.filter(task => task.is_completed == 1);
+    } else {
+        tasksToRender = allTasks.slice(); // alle
+    }
+
+    // Tag-Filter berücksichtigen (wenn gesetzt)
+    if (currentTagName) {
+        tasksToRender = tasksToRender.filter(t => (t.tags || []).map(x => x.name || x).includes(currentTagName));
+    }
+
+    // Priority-Filter
+    if (currentPriorityFilter && currentPriorityFilter !== 'all') {
+        tasksToRender = tasksToRender.filter(task => task.priority === currentPriorityFilter);
+    }
+
+    // Sortierung wie in renderTasks()
+    if (currentSortBy === 'priority') {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        tasksToRender.sort((a, b) => {
+            const aPriority = priorityOrder[a.priority] ?? 1;
+            const bPriority = priorityOrder[b.priority] ?? 1;
+            return aPriority - bPriority;
+        });
+    } else if (currentSortBy === 'due_date') {
+        tasksToRender.sort((a, b) => {
+            if (!a.due_date && !b.due_date) return 0;
+            if (!a.due_date) return 1;
+            if (!b.due_date) return -1;
+            return new Date(a.due_date) - new Date(b.due_date);
+        });
+    } else if (currentSortBy === 'created') {
+        tasksToRender.sort((a, b) => b.id - a.id); // neuer zuerst
+    }
+
+    return tasksToRender;
+}
+
+/**
+ * Erzeugt einfache, aufgeräumte HTML-Ausgabe für den Druck und öffnet ein neues Fenster + druckt.
+ */// Aktualisierte Druckfunktion: jedes Task als eine einzelne Zeile (Checkbox + Titel — Beschreibung — Fälligkeit)
+function printCurrentTasks() {
+    if (!isLoggedIn) {
+        alert('Bitte einloggen, um Ihre Aufgaben zu drucken.');
+        return;
+    }
+
+    const tasks = getFilteredTasks();
+
+    const title = document.querySelector('h1')?.textContent || 'Aufgaben';
+    const username = currentUsername || '';
+
+    const html = `
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)} - Druckansicht</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="print.css">
+<style>
+  /* Fallback styles, falls print.css nicht geladen wird */
+  body { font-family: Arial, Helvetica, sans-serif; margin: 14px; color: #111; }
+  h1 { font-size: 18px; margin-bottom: 6px; }
+  .meta { margin-bottom: 10px; color: #555; font-size: 0.95rem; }
+
+  ul.print-list { list-style: none; padding: 0; margin: 0; }
+  /* Jede Listenzeile: eine physische Zeile für einen Task */
+  ul.print-list li {
+    padding: 6px 0;
+    border-bottom: 1px solid #e6e6e6;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    page-break-inside: avoid;
+    white-space: nowrap; /* verhindert Zeilenumbruch innerhalb des Eintrags */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .checkbox-wrap { flex: 0 0 22px; }
+  .task-line { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+
+  .task-title { font-weight: 700; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 35%; }
+  .task-desc { color: #222; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+  .task-due { font-size: 0.92rem; color: #444; white-space: nowrap; flex: 0 0 auto; }
+
+  .completed .task-title, .completed .task-desc { color: #777; text-decoration: line-through; }
+
+  /* Bei sehr schmalen Seiten: - falls nötig kann das Limit angepasst werden */
+  @page { margin: 10mm; }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(title)} (Druckansicht)</h1>
+  <div class="meta">Benutzer: <strong>${escapeHtml(username)}</strong>
+    — Sicht: <span class="small">${escapeHtml(currentFilter)}${currentTagName ? ' — Tag: ' + escapeHtml(currentTagName) : ''}${currentPriorityFilter && currentPriorityFilter !== 'all' ? ' — Priorität: ' + escapeHtml(currentPriorityFilter) : ''}</span>
+  </div>
+
+  ${tasks.length === 0 ? '<p>Keine Aufgaben gefunden.</p>' : `
+    <ul class="print-list">
+      ${tasks.map(t => `
+        <li class="${t.is_completed == 1 ? 'completed' : ''}">
+          <div class="checkbox-wrap">
+            <input type="checkbox" ${t.is_completed == 1 ? 'checked' : ''} disabled aria-label="${t.is_completed == 1 ? 'Erledigt' : 'Offen'}">
+          </div>
+          <div class="task-line">
+            <span class="task-title">${escapeHtml(t.title || '')}</span>
+            <span>&#8212;</span>
+            <span class="task-desc">${escapeHtml(t.description || '')}</span>
+            <span>&#8212;</span>
+            <span class="task-due">Fällig: ${escapeHtml(t.due_date || '')}</span>
+          </div>
+        </li>
+      `).join('')}
+    </ul>
+  `}
+
+  <script>
+    window.onload = function() {
+      setTimeout(function(){ window.print(); }, 200);
+    };
+  </script>
+</body>
+</html>
+    `;
+
+    const w = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+    if (!w) {
+        alert('Popup-Blocker verhindert das Öffnen des Druckfensters. Bitte Popup-Blocker erlauben oder Seite als PDF speichern.');
+        return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+}
+
+/* Hilfsfunktion: einfaches HTML-escaping */
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// -> Eventlistener hinzufügen (z. B. in DOMContentLoaded bereits vorhandene Listener ergänzen)
+document.addEventListener('DOMContentLoaded', () => {
+    const printBtn = document.getElementById('printView');
+    if (printBtn) {
+        printBtn.addEventListener('click', printCurrentTasks);
+    }
 });

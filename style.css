@@ -326,7 +326,8 @@ wa-checkbox::part(control) {
 
 /* Beide Seiten als Spalten für Titel + Button-Gruppen */
 .button-header-left,
-.button-header-right {
+.button-header-right,
+.button-header-center {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -335,7 +336,8 @@ wa-checkbox::part(control) {
 
 /* Button-Gruppen korrekt anordnen (ersetzen kein Inline-Styling) */
 .button-header-left wa-button-group,
-.button-header-right wa-button-group {
+.button-header-right wa-button-group,
+.button-header-center wa-button-group{
     display: flex;
     gap: 0.5rem;
     align-items: center;
@@ -345,6 +347,10 @@ wa-checkbox::part(control) {
 /* Rechtsausrichtung der rechten Sektion */
 .button-header-right {
     align-items: flex-end;
+}
+
+.button-header-center {
+    align-items: flex-start; /* damit die rechte Sektion unter der linken sauber beginnt */
 }
 
 /* Task-Liste nimmt komplette Breite unterhalb des Headers ein */
@@ -363,6 +369,7 @@ wa-checkbox::part(control) {
     .button-header-right {
         align-items: flex-start; /* damit die rechte Sektion unter der linken sauber beginnt */
     }
+    
     .button-header-left wa-button-group,
     .button-header-right wa-button-group {
         width: 100%;

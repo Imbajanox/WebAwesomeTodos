@@ -1,0 +1,39 @@
+/* Druck-Styles: jede Aufgabe in einer Zeile (Checkbox + Titel — Beschreibung — Fälligkeit) */
+
+@media print {
+    /* verstecke Navigation/Buttons */
+    .button-header, nav, footer, .no-print, .wa-button, .wa-button-group { display: none !important; }
+  
+    body {
+      margin: 10mm;
+      color: #111;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      -webkit-print-color-adjust: exact;
+    }
+  
+    h1 { font-size: 18px; margin-bottom: 6px; }
+    .meta { margin-bottom: 8px; color: #555; }
+  
+    ul.print-list { list-style: none; padding: 0; margin: 0; }
+    ul.print-list li {
+      padding: 6px 0;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      page-break-inside: avoid;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  
+    .checkbox-wrap { flex: 0 0 22px; }
+    .task-line { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+  
+    .task-title { font-weight: 700; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 35%; }
+    .task-desc { color: #222; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+    .task-due { font-size: 11px; color: #444; white-space: nowrap; flex: 0 0 auto; }
+  
+    .completed .task-title, .completed .task-desc { color: #666; text-decoration: line-through; }
+  }

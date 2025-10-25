@@ -98,6 +98,8 @@ function validate_input_length($value, $maxLength, $fieldName) {
     return ['valid' => true, 'error' => null];
 }
 
+
+
 // =================================================================
 // TAG-VERWALTUNGSFUNKTIONEN
 // =================================================================
@@ -255,6 +257,137 @@ if (!$user_id) {
 if (!validate_csrf_token()) {
     http_response_code(403); // Forbidden
     echo json_encode(['error' => 'CSRF token validation failed.']);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['export']) && $_GET['export'] === 'ics') {
+    // Filter-Parameter
+    $filter = $_GET['filter'] ?? 'all';            // all | open | completed
+    $priority = $_GET['priority'] ?? 'all';        // low | medium | high | all
+    $tag = isset($_GET['tag']) ? trim($_GET['tag']) : null; // optionaler Tag-Name
+
+    // Auth prüfen (wie im restlichen api.php)
+    if (empty($user_id)) {
+        http_response_code(403);
+        echo "Unauthorized";
+        exit;
+    }
+
+    // SQL ähnlich wie im normalen GET
+    $sql = "
+        SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed, t.created_at
+        FROM tasks t
+        LEFT JOIN task_tags tt ON t.id = tt.task_id
+        LEFT JOIN tags ON tags.id = tt.tag_id
+        WHERE t.user_id = ?
+    ";
+    $params = [$user_id];
+
+    if ($filter === 'open') {
+        $sql .= " AND t.is_completed = 0";
+    } elseif ($filter === 'completed') {
+        $sql .= " AND t.is_completed = 1";
+    }
+    if ($priority !== 'all') {
+        $sql .= " AND t.priority = ?";
+        $params[] = $priority;
+    }
+    if ($tag) {
+        $sql .= " AND tags.name = ?";
+        $params[] = $tag;
+    }
+
+    $sql .= " GROUP BY t.id ORDER BY t.due_date IS NULL, t.due_date ASC, t.created_at DESC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Helfer: RFC-konformes Escaping für TEXT
+    $ical_escape = function(string $text): string {
+        // RFC5545: BACKSLASH, SEMICOLON, COMMA und NEWLINE escapen
+        $text = (string)$text;
+        $text = str_replace("\\", "\\\\", $text);
+        $text = str_replace(["\r\n", "\r", "\n"], "\\n", $text);
+        $text = str_replace(";", "\\;", $text);
+        $text = str_replace(",", "\\,", $text);
+        return $text;
+    };
+
+    // Helfer: Zeilen auf max 75 octets falten (RFC 5545)
+    $ical_fold = function(string $line): string {
+        $max = 75; // max octets before folding
+        $result = '';
+        // Wir arbeiten auf Byte-Ebene, CRLF wird später angehängt
+        while (strlen($line) > $max) {
+            $part = substr($line, 0, $max);
+            $result .= $part . "\r\n" . ' ';
+            $line = substr($line, $max);
+        }
+        $result .= $line;
+        return $result;
+    };
+
+    // Meta
+    $prodid = '-//WebAwesomeTodos//EN';
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $dtstamp = $now->format('Ymd').'T'.$now->format('His').'Z';
+
+    $raw_lines = [];
+    $raw_lines[] = 'BEGIN:VCALENDAR';
+    $raw_lines[] = 'VERSION:2.0';
+    $raw_lines[] = 'PRODID:'.$prodid;
+    $raw_lines[] = 'CALSCALE:GREGORIAN';
+    $raw_lines[] = 'METHOD:PUBLISH';
+    $raw_lines[] = 'X-WR-CALNAME:WebAwesomeTodos';
+
+    foreach ($rows as $task) {
+        // Nur Tasks mit due_date als YYYY-MM-DD exportieren (ganztägige Events).
+        if (empty($task['due_date'])) continue;
+
+        $due = DateTime::createFromFormat('Y-m-d', $task['due_date'], new DateTimeZone('UTC'));
+        if (!$due) continue;
+
+        $dtstart = $due->format('Ymd'); // all-day event
+        $dtendObj = clone $due;
+        $dtendObj->modify('+1 day'); // DTEND ist exklusiv für DATE
+        $dtend = $dtendObj->format('Ymd');
+
+        // Eindeutige UID: task-id + timestamp + host (lokal)
+        $uid = 'task-' . $task['id'] . '-' . $now->format('YmdHis') . '@webawesometodos.local';
+
+        $summary = $ical_escape($task['title'] ?? '');
+        $description = $ical_escape($task['description'] ?? '');
+        $status = ($task['is_completed'] == 1) ? 'COMPLETED' : 'CONFIRMED';
+
+        $raw_lines[] = 'BEGIN:VEVENT';
+        $raw_lines[] = 'UID:'.$uid;
+        $raw_lines[] = 'DTSTAMP:'.$dtstamp;
+        $raw_lines[] = 'DTSTART;VALUE=DATE:'.$dtstart;
+        $raw_lines[] = 'DTEND;VALUE=DATE:'.$dtend;
+        $raw_lines[] = 'SUMMARY:'.$summary;
+        if ($description !== '') {
+            $raw_lines[] = 'DESCRIPTION:'.$description;
+        }
+        // Status und ggf. COMPLETED-Zeitstempel
+        $raw_lines[] = 'STATUS:'.$status;
+        if ($task['is_completed'] == 1) {
+            // Wenn Task erledigt, setze COMPLETED per DTSTAMP (UTC)
+            $raw_lines[] = 'COMPLETED:'.$dtstamp;
+        }
+        // Optional: Quelle/URL oder Notiz mit Priorität / Tags (kann ergänzt werden)
+        $raw_lines[] = 'END:VEVENT';
+    }
+
+    $raw_lines[] = 'END:VCALENDAR';
+
+    // Folding aller Linien nach RFC 5545 (max 75 octets pro Zeile)
+    $folded = array_map($ical_fold, $raw_lines);
+    $ical = implode("\r\n", $folded) . "\r\n";
+
+    header('Content-Type: text/calendar; charset=utf-8');
+    header('Content-Disposition: attachment; filename="webawesometodos_export.ics"');
+    echo $ical;
     exit;
 }
 
@@ -523,4 +656,5 @@ switch ($request_method) {
         echo json_encode(['error' => 'Method not allowed.']);
         break;
 }
+
 ?>

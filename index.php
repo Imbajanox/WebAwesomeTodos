@@ -9,7 +9,6 @@
 	<link rel="stylesheet" href="https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/styles/themes/awesome.css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script type="module" src="https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/webawesome.loader.js"></script>
-
 </head>
 <body>
 	
@@ -129,10 +128,27 @@
 								<wa-button id="filterCompleted" size="small" variant="neutral" panel="tasksPanel" style="">Erledigt</wa-button>
 							</wa-button-group>
 					</div>
+					<div class="button-header-center">
+							<h3 style="margin:0 0 0.5rem 0; font-size:0.95rem;">Ansicht</h3>
+							<wa-button-group>
+							<wa-button id="printView" size="small" variant="neutral">
+							<wa-icon name="print" label="Print"></wa-icon>
+							</wa-button>
+
+						
+								<wa-button id="exportIcs" size="small" variant="success" style="display:flex;justify-content:center;">
+									<wa-icon name="calendar-days" label="Print"></wa-icon>
+								</wa-button>
+							</wa-button-group>
+							
+				
+					</div>
+					
 					<div class="button-header-right">
 						<h3 style="margin:0 0 0.5rem 0; font-size:0.95rem;">Tags</h3>
-						<wa-button-group appearance="filled" id="tagFilterBar"size="small" style="display:flex;flex-direction:column;">
-						</wa-button-group>
+						<div id="tagFilterBar">
+						</div>
+						
 					</div>
 				</div>
 				<div id="taskListContainer"></div>
