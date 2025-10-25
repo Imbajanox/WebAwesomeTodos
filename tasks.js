@@ -324,7 +324,7 @@ function createTaskCard(task) {
         today.setHours(0, 0, 0, 0);
         const isOverdue = dueDate < today && task.is_completed == 0;
         
-        dueDateBadge.innerHTML = `<i class="fas fa-calendar"></i> ${formatDate(task.due_date)}`;
+        dueDateBadge.innerHTML = `<i class="fas fa-calendar"></i>&nbsp;${formatDate(task.due_date)}`;
         dueDateBadge.setAttribute('variant', isOverdue ? 'danger' : 'info');
         dueDateBadge.style.fontSize = '0.7rem';
         metaDiv.appendChild(dueDateBadge);
@@ -604,14 +604,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sort and priority filter listeners
     if (sortBySelect) {
         sortBySelect.addEventListener('wa-change', (e) => {
-            currentSortBy = e.target.value;
+            currentSortBy = sortBySelect.value;
             renderTasks();
         });
     }
     
     if (filterPrioritySelect) {
         filterPrioritySelect.addEventListener('wa-change', (e) => {
-            currentPriorityFilter = e.target.value;
+            currentPriorityFilter = filterPrioritySelect.value;
             renderTasks();
         });
     }
@@ -878,7 +878,7 @@ function showEditDialog(task) {
                 <i class="fas fa-keyboard" slot="start"></i>
             </wa-input>
             
-            <wa-textarea id="editTaskDescription" placeholder="Beschreibung (optional)" size="small" rows="3" style="margin-bottom: 1rem;">${escapeHtml(task.description || '')}</wa-textarea>
+            <wa-textarea id="editTaskDescription" placeholder="Beschreibung (optional)" size="small" rows="3" value="${escapeHtml(task.description || '')}" style="margin-bottom: 1rem;"></wa-textarea>
             
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
                 <wa-input type="date" id="editTaskDueDate" placeholder="Fälligkeitsdatum" size="medium" value="${task.due_date || ''}" style="flex: 1; min-width: 200px;">
@@ -897,7 +897,7 @@ function showEditDialog(task) {
             </wa-input>
         </form>
         
-        <wa-button slot="footer" id="cancelEditButton" data-dialog="close">Abbrechen</wa-button>
+        <wa-button slot="footer" id="cancelEditButton">Abbrechen</wa-button>
         <wa-button slot="footer" variant="primary" id="confirmEditButton" appearance="filled">
             <i class="fas fa-save" slot="start"></i> Speichern
         </wa-button>
@@ -936,9 +936,18 @@ function showEditDialog(task) {
             confirmButton.removeAttribute('loading');
             dialog.hide();
         };
+        
+        // Handle cancel
+        const handleCancel = (event) => {
+            event.preventDefault();
+            dialog.hide();
+        };
 
         confirmButton.removeEventListener('click', handleSave);
         confirmButton.addEventListener('click', handleSave);
+        
+        cancelButton.removeEventListener('click', handleCancel);
+        cancelButton.addEventListener('click', handleCancel);
         
         form.removeEventListener('submit', handleSave);
         form.addEventListener('submit', handleSave);
