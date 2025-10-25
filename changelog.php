@@ -75,7 +75,7 @@
         <div class="version-section">
             <wa-card>
                 <div slot="header" class="version-header">
-                    <wa-badge variant="primary" size="large" class="version-number">v1.2.0</wa-badge>
+                    <wa-badge variant="primary" size="large" class="version-number">v1.3.0</wa-badge>
                     <span class="version-date">Aktuell</span>
                 </div>
                 <div class="change-list">
@@ -94,8 +94,8 @@
         <div class="version-section">
             <wa-card>
                 <div slot="header" class="version-header">
-                    <wa-badge variant="neutral" size="large" class="version-number">v1.1.0</wa-badge>
-                    <span class="version-date">2024</span>
+                    <wa-badge variant="neutral" size="large" class="version-number">v1.2.0</wa-badge>
+                    <span class="version-date">Oktober 2025</span>
                 </div>
                 <div class="change-list">
                     <div class="change-item">
@@ -117,17 +117,32 @@
         <div class="version-section">
             <wa-card>
                 <div slot="header" class="version-header">
+                    <wa-badge variant="neutral" size="large" class="version-number">v1.1.0</wa-badge>
+                    <span class="version-date">Oktober 2025</span>
+                </div>
+                <div class="change-list">
+                    <div class="change-item">
+                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
+                        <span>Benutzerauthentifizierung und Registrierung</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-edit" style="color: var(--wa-color-success);"></i>
+                        <span>Design überarbeitet</span>
+                    </div>
+                </div>
+            </wa-card>
+        </div>
+
+        <div class="version-section">
+            <wa-card>
+                <div slot="header" class="version-header">
                     <wa-badge variant="neutral" size="large" class="version-number">v1.0.0</wa-badge>
-                    <span class="version-date">2024</span>
+                    <span class="version-date">Oktober 2025</span>
                 </div>
                 <div class="change-list">
                     <div class="change-item">
                         <i class="fas fa-rocket" style="color: var(--wa-color-info);"></i>
                         <span>Erste Veröffentlichung</span>
-                    </div>
-                    <div class="change-item">
-                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
-                        <span>Benutzerauthentifizierung und Registrierung</span>
                     </div>
                     <div class="change-item">
                         <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
