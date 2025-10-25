@@ -22,7 +22,7 @@
 					<i class="fas fa-right-from-bracket" slot="start"></i> Logout
 				</wa-button>
 				<wa-button id="themeToggleButton" variant="neutral" size="small" style="margin-right: 0.5rem;">
-					<i class="fas fa-sun" slot="start" id="themeIcon"></i> Hell
+				<wa-icon name="sun" label="Sun" id="themeIcon"></wa-icon>
 				</wa-button>
 			</div>
 			
@@ -59,6 +59,12 @@
 					<p style="margin-top: 1rem; text-align: center;">
 						<a href="#" id="toggleAuthView">Noch kein Konto? Hier registrieren.</a>
 					</p>
+					<div style="display: flex; justify-content: center;">
+						<wa-button id="themeToggleButtonAuth" variant="neutral" size="small" style="display: flex; justify-content: center; align-items: center;">
+							
+							<wa-icon name="sun" label="Sun" id="themeIcon"></wa-icon>
+						</wa-button>
+					</div>
 				</wa-card>
 			</div>
 			<div id="taskManagerView" style="display: none;"	>

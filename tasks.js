@@ -594,6 +594,7 @@ function handleCancelClick(event) {
 // DOM-Elemente abrufen
 const htmlElement = document.documentElement; // Das <html> Tag
 const themeToggleButton = document.getElementById('themeToggleButton');
+const themeToggleButtonAuth = document.getElementById('themeToggleButtonAuth');
 const themeIcon = document.getElementById('themeIcon');
 
 // Funktion zum Setzen des Themas
@@ -604,11 +605,12 @@ function setTheme(isDark) {
         htmlElement.classList.add('wa-dark');
         
         // Button-Text/Icon anpassen (zeigt an, dass man auf Hell umschalten kann)
-        themeIcon.classList.remove('fa-sun');
-        themeIcon.classList.add('fa-moon');
+        themeIcon.setAttribute('name', 'moon');
+        themeIcon.setAttribute('label', 'Moon');
         themeToggleButton.textContent = 'Dunkel';
         themeToggleButton.prepend(themeIcon); // Icon wieder einfügen
-        
+        themeToggleButtonAuth.textContent = '';
+        themeToggleButtonAuth.prepend(themeIcon); // Icon wieder einfügen
         // Zustand speichern
         localStorage.setItem('taskManagerTheme', 'dark');
     } else {
@@ -617,10 +619,12 @@ function setTheme(isDark) {
         htmlElement.classList.add('wa-light');
         
         // Button-Text/Icon anpassen (zeigt an, dass man auf Dunkel umschalten kann)
-        themeIcon.classList.remove('fa-moon');
-        themeIcon.classList.add('fa-sun');
+        themeIcon.setAttribute('name', 'sun');
+        themeIcon.setAttribute('label', 'Sun');
         themeToggleButton.textContent = 'Hell';
         themeToggleButton.prepend(themeIcon); // Icon wieder einfügen
+        themeToggleButtonAuth.textContent = '';
+        themeToggleButtonAuth.prepend(themeIcon); // Icon wieder einfügen
         
         // Zustand speichern
         localStorage.setItem('taskManagerTheme', 'light');
@@ -639,6 +643,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listener für den Theme-Toggle-Button
 themeToggleButton.addEventListener('click', () => {
+    // Prüfen, ob aktuell wa-dark gesetzt ist
+    const isCurrentlyDark = htmlElement.classList.contains('wa-dark');
+    
+    // Thema umschalten
+    setTheme(!isCurrentlyDark);
+});
+
+// Event Listener für den Theme-Toggle-Button
+themeToggleButtonAuth.addEventListener('click', () => {
     // Prüfen, ob aktuell wa-dark gesetzt ist
     const isCurrentlyDark = htmlElement.classList.contains('wa-dark');
     
