@@ -65,7 +65,7 @@
 						<a href="#" id="toggleAuthView">Noch kein Konto? Hier registrieren.</a>
 					</p>
 					<p style="margin-top: 0.5rem; text-align: center;">
-						<a href="changelog.php" style="font-size: 0.9rem;"><i class="fas fa-clock-rotate-left"></i> Changelog ansehen</a>
+						<a href="changelog.php" style="font-size: 0.9rem;"><i class="fas fa-clock-rotate-left"></i>&nbsp;Changelog ansehen</a>
 					</p>
 				</wa-card>
 			</div>
