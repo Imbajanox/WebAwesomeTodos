@@ -27,7 +27,7 @@
 					</wa-button>
 				</a>
 				<wa-button id="themeToggleButton" variant="neutral" size="small" style="margin-right: 0.5rem;">
-				<wa-icon name="sun" label="Sun" id="themeIcon"></wa-icon>
+				<wa-icon name="sun" label="Sun" id="themeIconMain"></wa-icon>
 				</wa-button>
 			</div>
 			
@@ -70,7 +70,7 @@
 					<div style="display: flex; justify-content: center;">
 						<wa-button id="themeToggleButtonAuth" variant="neutral" size="small" style="display: flex; justify-content: center; align-items: center;">
 							
-							<wa-icon name="sun" label="Sun" id="themeIcon"></wa-icon>
+							<wa-icon name="sun" label="Sun" id="themeIconAuth"></wa-icon>
 						</wa-button>
 					</div>
 				</wa-card>

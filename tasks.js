@@ -34,6 +34,32 @@ let allTasks = [];
 let currentFilter = 'all'; // Standardfilter
 let isLoggedIn = false;
 let currentUsername = '';
+let csrfToken = ''; // CSRF token for requests
+
+// =================================================================
+// CSRF TOKEN MANAGEMENT
+// =================================================================
+
+/**
+ * Fetches CSRF token from the server
+ * If this fails, user will get errors on mutating operations
+ */
+async function fetchCsrfToken() {
+    try {
+        const response = await fetch('api.php?action=csrf');
+        if (!response.ok) {
+            throw new Error('Failed to fetch CSRF token');
+        }
+        const data = await response.json();
+        csrfToken = data.csrf_token || '';
+        if (!csrfToken) {
+            console.error('CSRF token is empty - mutating operations may fail');
+        }
+    } catch (error) {
+        console.error('Failed to fetch CSRF token:', error);
+        console.error('Mutating operations (create, update, delete) will fail without CSRF token');
+    }
+}
 
 // =================================================================
 // 1. ANZEIGE LOGIK (Views umschalten)
@@ -44,7 +70,7 @@ let currentUsername = '';
  * @param {boolean} loggedIn - true, wenn der Benutzer eingeloggt ist.
  * @param {string} username - Der Benutzername des eingeloggten Benutzers.
  */
-function updateView(loggedIn, username = '') {
+async function updateView(loggedIn, username = '') {
     isLoggedIn = loggedIn;
     currentUsername = username;
     
@@ -53,6 +79,7 @@ function updateView(loggedIn, username = '') {
         taskManagerView.style.display = 'block';
         userInfo.style.display = 'flex';
         usernameDisplay.textContent = username;
+        await fetchCsrfToken(); // Fetch CSRF token for authenticated requests
         fetchTasks(); // Aufgaben nur laden, wenn eingeloggt
         fetchTagsAndRenderBar();
     } else {
@@ -445,7 +472,10 @@ addTaskForm.addEventListener('submit', async (e) => {
     try {
         const response = await fetch('api.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
             body: JSON.stringify({ title: title, tags: tags })
         });
 
@@ -477,7 +507,10 @@ async function toggleTask(id) {
     try {
         const response = await fetch('api.php?action=toggle', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
             body: JSON.stringify({ id: id })
         });
 
@@ -505,7 +538,10 @@ async function deleteTask(id) {
     try {
         const response = await fetch('api.php', {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
             body: JSON.stringify({ id: id })
         });
 
@@ -595,7 +631,8 @@ function handleCancelClick(event) {
 const htmlElement = document.documentElement; // Das <html> Tag
 const themeToggleButton = document.getElementById('themeToggleButton');
 const themeToggleButtonAuth = document.getElementById('themeToggleButtonAuth');
-const themeIcon = document.getElementById('themeIcon');
+const themeIconMain = document.getElementById('themeIconMain');
+const themeIconAuth = document.getElementById('themeIconAuth');
 
 // Funktion zum Setzen des Themas
 function setTheme(isDark) {
@@ -605,12 +642,14 @@ function setTheme(isDark) {
         htmlElement.classList.add('wa-dark');
         
         // Button-Text/Icon anpassen (zeigt an, dass man auf Hell umschalten kann)
-        themeIcon.setAttribute('name', 'moon');
-        themeIcon.setAttribute('label', 'Moon');
-        themeToggleButton.textContent = 'Dunkel';
-        themeToggleButton.prepend(themeIcon); // Icon wieder einfügen
-        themeToggleButtonAuth.textContent = '';
-        themeToggleButtonAuth.prepend(themeIcon); // Icon wieder einfügen
+        if (themeIconMain) {
+            themeIconMain.setAttribute('name', 'moon');
+            themeIconMain.setAttribute('label', 'Moon');
+        }
+        if (themeIconAuth) {
+            themeIconAuth.setAttribute('name', 'moon');
+            themeIconAuth.setAttribute('label', 'Moon');
+        }
         // Zustand speichern
         localStorage.setItem('taskManagerTheme', 'dark');
     } else {
@@ -619,12 +658,14 @@ function setTheme(isDark) {
         htmlElement.classList.add('wa-light');
         
         // Button-Text/Icon anpassen (zeigt an, dass man auf Dunkel umschalten kann)
-        themeIcon.setAttribute('name', 'sun');
-        themeIcon.setAttribute('label', 'Sun');
-        themeToggleButton.textContent = 'Hell';
-        themeToggleButton.prepend(themeIcon); // Icon wieder einfügen
-        themeToggleButtonAuth.textContent = '';
-        themeToggleButtonAuth.prepend(themeIcon); // Icon wieder einfügen
+        if (themeIconMain) {
+            themeIconMain.setAttribute('name', 'sun');
+            themeIconMain.setAttribute('label', 'Sun');
+        }
+        if (themeIconAuth) {
+            themeIconAuth.setAttribute('name', 'sun');
+            themeIconAuth.setAttribute('label', 'Sun');
+        }
         
         // Zustand speichern
         localStorage.setItem('taskManagerTheme', 'light');
