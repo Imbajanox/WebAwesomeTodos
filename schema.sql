@@ -27,11 +27,16 @@ CREATE TABLE IF NOT EXISTS `users` (
 CREATE TABLE IF NOT EXISTS `tasks` (
   `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `due_date` date DEFAULT NULL,
+  `priority` enum('low', 'medium', 'high') DEFAULT 'medium',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `is_completed` tinyint(1) NOT NULL DEFAULT 0,
   `user_id` int UNSIGNED NOT NULL,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
+  KEY `due_date` (`due_date`),
+  KEY `priority` (`priority`),
   CONSTRAINT `tasks_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

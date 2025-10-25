@@ -161,6 +161,34 @@ wa-checkbox::part(control) {
 .task-list wa-card.completed .task-title {
     font-weight: 400; 
 }
+
+/* Priority border indicators */
+.task-list wa-card.priority-high {
+    border-left: 4px solid var(--wa-color-danger-600);
+}
+
+.task-list wa-card.priority-medium {
+    border-left: 4px solid var(--wa-color-warning-600);
+}
+
+.task-list wa-card.priority-low {
+    border-left: 4px solid var(--wa-color-success-600);
+}
+
+/* Task content styling */
+.task-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.task-description {
+    font-size: 0.85rem;
+    color: var(--wa-color-neutral-600);
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}
     
 /* ------------------------------------------------ */
 /* 6. RESPONSIVE ANPASSUNGEN */

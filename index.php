@@ -81,11 +81,23 @@
 						<wa-input type="text" id="taskTitle" placeholder="Neue Aufgabe hinzufügen..." size="large" required style="flex:1 1 auto; min-width:0;">
 							<i class="fas fa-keyboard" slot="start"></i>
 						</wa-input>
-						<wa-input type="text" id="taskTags" placeholder="Tags (z.B. Arbeit, Privat)" size="medium" style="min-width: 160px;">
-							<i class="fas fa-tags" slot="end"></i>
-						</wa-input>
-						<wa-button appearance="filled" variant="primary" type="submit" size="large" id="addButton" style="flex:0 0 auto;">
-							<i class="fas fa-plus" slot="start"></i> Hinzufügen
+						<wa-textarea id="taskDescription" placeholder="Beschreibung (optional)" size="small" rows="2" style="flex:1 1 100%; min-width:0; margin-top:0.5rem;">
+						</wa-textarea>
+						<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+							<wa-input type="date" id="taskDueDate" placeholder="Fälligkeitsdatum" size="medium" style="flex: 1; min-width: 160px;">
+								<i class="fas fa-calendar" slot="start"></i>
+							</wa-input>
+							<wa-select id="taskPriority" placeholder="Priorität" size="medium" value="medium" style="flex: 1; min-width: 140px;">
+								<wa-option value="low">Niedrig</wa-option>
+								<wa-option value="medium" selected>Mittel</wa-option>
+								<wa-option value="high">Hoch</wa-option>
+							</wa-select>
+							<wa-input type="text" id="taskTags" placeholder="Tags (z.B. Arbeit, Privat)" size="medium" style="flex: 1; min-width: 160px;">
+								<i class="fas fa-tags" slot="end"></i>
+							</wa-input>
+						</div>
+						<wa-button appearance="filled" variant="primary" type="submit" size="large" id="addButton" style="flex:0 0 auto; margin-top:0.5rem; width: 100%;">
+							<i class="fas fa-plus" slot="start"></i> Aufgabe hinzufügen
 						</wa-button>
 					</form>
 					<div class="task-controls main-controls" style="margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center;">

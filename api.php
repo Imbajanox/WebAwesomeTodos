@@ -271,7 +271,7 @@ switch ($request_method) {
 
         if ($tag_id) {
             $stmt = $pdo->prepare("
-                SELECT t.id, t.title, t.is_completed,
+                SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed,
                        GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
@@ -283,7 +283,7 @@ switch ($request_method) {
             $stmt->execute([$user_id, $tag_id]);
         } elseif ($tag_name) {
             $stmt = $pdo->prepare("
-                SELECT t.id, t.title, t.is_completed,
+                SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed,
                        GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
@@ -297,7 +297,7 @@ switch ($request_method) {
             $stmt->execute([$user_id, $user_id, $tag_name]);
         } else {
             $stmt = $pdo->prepare("
-                SELECT t.id, t.title, t.is_completed,
+                SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed,
                        GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
@@ -323,6 +323,9 @@ switch ($request_method) {
     case 'POST':
         if (isset($input['title']) && !empty(trim($input['title']))) {
             $title = trim($input['title']);
+            $description = isset($input['description']) ? trim($input['description']) : null;
+            $due_date = isset($input['due_date']) ? trim($input['due_date']) : null;
+            $priority = isset($input['priority']) ? trim($input['priority']) : 'medium';
             $tags_input = $input['tags'] ?? []; // optional: array of tag names
             
             // Validate title length (max 255 chars per schema)
@@ -332,11 +335,30 @@ switch ($request_method) {
                 echo json_encode(['error' => $titleValidation['error']]);
                 break;
             }
+            
+            // Validate priority
+            if (!in_array($priority, ['low', 'medium', 'high'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Priority must be low, medium, or high.']);
+                break;
+            }
+            
+            // Validate due_date format if provided
+            if ($due_date && !empty($due_date)) {
+                $date = \DateTime::createFromFormat('Y-m-d', $due_date);
+                if (!$date || $date->format('Y-m-d') !== $due_date) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Due date must be in YYYY-MM-DD format.']);
+                    break;
+                }
+            } else {
+                $due_date = null;
+            }
 
             $pdo->beginTransaction();
             try {
-                $stmt = $pdo->prepare("INSERT INTO tasks (title, is_completed, user_id) VALUES (?, 0, ?)");
-                $stmt->execute([$title, $user_id]);
+                $stmt = $pdo->prepare("INSERT INTO tasks (title, description, due_date, priority, is_completed, user_id) VALUES (?, ?, ?, ?, 0, ?)");
+                $stmt->execute([$title, $description, $due_date, $priority, $user_id]);
                 $task_id = (int)$pdo->lastInsertId();
 
                 // Tags verarbeiten (falls vorhanden)
@@ -366,7 +388,7 @@ switch ($request_method) {
         }
         break;
 
-    // C. UPDATE (Status umschalten)
+    // C. UPDATE (Status umschalten oder Task bearbeiten)
     case 'PUT':
         if ($action === 'toggle' && isset($input['id'])) {
             $id = $input['id'];
@@ -383,6 +405,93 @@ switch ($request_method) {
             } else {
                 http_response_code(404);
                 echo json_encode(['error' => 'Task not found or unauthorized.']);
+            }
+        } elseif ($action === 'edit' && isset($input['id'])) {
+            // Edit task endpoint
+            $id = $input['id'];
+            
+            // Verify task exists and belongs to user
+            $stmt = $pdo->prepare("SELECT id FROM tasks WHERE id = ? AND user_id = ?");
+            $stmt->execute([$id, $user_id]);
+            if (!$stmt->fetch()) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Task not found or unauthorized.']);
+                break;
+            }
+            
+            // Collect and validate fields
+            $title = isset($input['title']) ? trim($input['title']) : null;
+            $description = isset($input['description']) ? trim($input['description']) : null;
+            $due_date = isset($input['due_date']) ? trim($input['due_date']) : null;
+            $priority = isset($input['priority']) ? trim($input['priority']) : null;
+            $tags_input = $input['tags'] ?? null;
+            
+            // Title is required
+            if (empty($title)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Title is required.']);
+                break;
+            }
+            
+            // Validate title length
+            $titleValidation = validate_input_length($title, 255, 'Title');
+            if (!$titleValidation['valid']) {
+                http_response_code(400);
+                echo json_encode(['error' => $titleValidation['error']]);
+                break;
+            }
+            
+            // Validate priority
+            if ($priority !== null && !in_array($priority, ['low', 'medium', 'high'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Priority must be low, medium, or high.']);
+                break;
+            }
+            
+            // Validate due_date format if provided
+            if ($due_date && !empty($due_date)) {
+                $date = \DateTime::createFromFormat('Y-m-d', $due_date);
+                if (!$date || $date->format('Y-m-d') !== $due_date) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Due date must be in YYYY-MM-DD format.']);
+                    break;
+                }
+            } else {
+                $due_date = null;
+            }
+            
+            $pdo->beginTransaction();
+            try {
+                // Update task fields
+                $stmt = $pdo->prepare("UPDATE tasks SET title = ?, description = ?, due_date = ?, priority = ? WHERE id = ? AND user_id = ?");
+                $stmt->execute([$title, $description, $due_date, $priority, $id, $user_id]);
+                
+                // Update tags if provided
+                if (is_array($tags_input)) {
+                    // Remove existing tags
+                    $stmt = $pdo->prepare("DELETE FROM task_tags WHERE task_id = ?");
+                    $stmt->execute([$id]);
+                    
+                    // Add new tags
+                    if (count($tags_input) > 0) {
+                        $insertRelation = $pdo->prepare("INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)");
+                        foreach ($tags_input as $tname) {
+                            $tname = trim((string)$tname);
+                            if ($tname === '') continue;
+                            $tag_id = get_or_create_tag($pdo, $user_id, $tname);
+                            if ($tag_id) {
+                                $insertRelation->execute([$id, $tag_id]);
+                            }
+                        }
+                    }
+                }
+                
+                $pdo->commit();
+                echo json_encode(['success' => true, 'id' => $id]);
+            } catch (\Exception $e) {
+                $pdo->rollBack();
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to update task.']);
             }
         } else {
             http_response_code(400);

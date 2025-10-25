@@ -5,6 +5,9 @@
 const taskListContainer = document.getElementById('taskListContainer');
 const addTaskForm = document.getElementById('addTaskForm');
 const taskTitleInput = document.getElementById('taskTitle');
+const taskDescriptionInput = document.getElementById('taskDescription');
+const taskDueDateInput = document.getElementById('taskDueDate');
+const taskPriorityInput = document.getElementById('taskPriority');
 const addButton = document.getElementById('addButton');
 
 const taskCounter = document.getElementById('taskCounter');
@@ -102,6 +105,37 @@ function showAuthMessage(message, variant = 'info') {
         authMessage.style.display = 'none';
         authMessage.innerHTML = '';
     }, 4000);
+}
+
+/**
+ * Zeigt eine freundliche Validierungsfehlermeldung an.
+ */
+function showValidationError(message) {
+    // Create a temporary callout message
+    const errorDiv = document.createElement('div');
+    errorDiv.id = 'validationError';
+    errorDiv.innerHTML = `<wa-callout variant="danger" closeable><i class="fas fa-exclamation-triangle" slot="icon"></i>${message}</wa-callout>`;
+    errorDiv.style.marginBottom = '1rem';
+    
+    // Remove any existing error messages
+    const existing = document.getElementById('validationError');
+    if (existing) existing.remove();
+    
+    // Insert before the form
+    addTaskForm.parentNode.insertBefore(errorDiv, addTaskForm);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (errorDiv.parentNode) errorDiv.remove();
+    }, 5000);
+    
+    // Allow manual close
+    const callout = errorDiv.querySelector('wa-callout');
+    if (callout) {
+        callout.addEventListener('wa-hide', () => {
+            if (errorDiv.parentNode) errorDiv.remove();
+        });
+    }
 }
 
 
@@ -221,6 +255,11 @@ function createTaskCard(task) {
     const card = document.createElement('wa-card');
     card.className = task.is_completed == 1 ? 'completed' : '';
     card.setAttribute('data-id', task.id);
+    
+    // Add priority class for styling
+    if (task.priority) {
+        card.classList.add(`priority-${task.priority}`);
+    }
 
     // 2. Checkbox (Toggle) erstellen
     const checkbox = document.createElement('wa-checkbox');
@@ -231,42 +270,117 @@ function createTaskCard(task) {
     // Event Listener für Status-Update
     checkbox.addEventListener('change', () => toggleTask(task.id));
 
-    // 3. Titel-Span erstellen
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'task-title';
-    titleSpan.textContent = task.title; // Füllt den Text ein
-
+    // 3. Content container for title, description, and metadata
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'task-content';
+    contentDiv.style.flex = '1';
+    contentDiv.style.minWidth = '0';
+    
+    // Title
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'task-title';
+    titleDiv.textContent = task.title;
+    contentDiv.appendChild(titleDiv);
+    
+    // Description (if exists)
+    if (task.description && task.description.trim()) {
+        const descDiv = document.createElement('div');
+        descDiv.className = 'task-description';
+        descDiv.textContent = task.description;
+        descDiv.style.fontSize = '0.85rem';
+        descDiv.style.color = 'var(--wa-color-neutral-600)';
+        descDiv.style.marginTop = '0.25rem';
+        contentDiv.appendChild(descDiv);
+    }
+    
+    // Metadata container (priority, due date, tags)
+    const metaDiv = document.createElement('div');
+    metaDiv.style.display = 'flex';
+    metaDiv.style.gap = '0.5rem';
+    metaDiv.style.marginTop = '0.5rem';
+    metaDiv.style.flexWrap = 'wrap';
+    metaDiv.style.alignItems = 'center';
+    
+    // Priority badge
+    if (task.priority) {
+        const priorityBadge = document.createElement('wa-badge');
+        const priorityLabels = { low: 'Niedrig', medium: 'Mittel', high: 'Hoch' };
+        const priorityVariants = { low: 'success', medium: 'warning', high: 'danger' };
+        priorityBadge.textContent = priorityLabels[task.priority] || task.priority;
+        priorityBadge.setAttribute('variant', priorityVariants[task.priority] || 'neutral');
+        priorityBadge.style.fontSize = '0.7rem';
+        metaDiv.appendChild(priorityBadge);
+    }
+    
+    // Due date badge
+    if (task.due_date) {
+        const dueDateBadge = document.createElement('wa-badge');
+        const dueDate = new Date(task.due_date + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isOverdue = dueDate < today && task.is_completed == 0;
+        
+        dueDateBadge.innerHTML = `<i class="fas fa-calendar"></i> ${formatDate(task.due_date)}`;
+        dueDateBadge.setAttribute('variant', isOverdue ? 'danger' : 'info');
+        dueDateBadge.style.fontSize = '0.7rem';
+        metaDiv.appendChild(dueDateBadge);
+    }
+    
+    // Tags
     if (Array.isArray(task.tags) && task.tags.length > 0) {
-        const tagsWrap = document.createElement('div');
-        tagsWrap.style.display = 'flex';
-        tagsWrap.style.gap = '0.4rem';
-        tagsWrap.style.marginLeft = '0';
         task.tags.forEach(tn => {
             const badge = document.createElement('wa-badge');
             badge.textContent = tn;
             badge.setAttribute('variant', 'neutral');
-            badge.style.fontSize = '0.75rem';
-            tagsWrap.appendChild(badge);
+            badge.style.fontSize = '0.7rem';
+            metaDiv.appendChild(badge);
         });
-        titleSpan.appendChild(tagsWrap);
+    }
+    
+    if (metaDiv.children.length > 0) {
+        contentDiv.appendChild(metaDiv);
     }
 
-    // 4. Löschen Button erstellen
+    // 4. Edit and Delete buttons
+    const editButton = document.createElement('wa-button');
+    editButton.innerHTML = '<i class="fas fa-pen"></i>';
+    editButton.setAttribute('title', 'Bearbeiten');
+    editButton.addEventListener('click', () => showEditDialog(task));
+    
     const deleteButton = document.createElement('wa-button');
     deleteButton.innerHTML = '<i class="fas fa-trash-can"></i>'; 
+    deleteButton.setAttribute('title', 'Löschen');
     deleteButton.addEventListener('click', () => showDeleteDialog(task.id, task.title));
 
-    // 5. Aktionen-Gruppe erstellen (enthält NUR NOCH den Löschen-Button)
+    // 5. Aktionen-Gruppe erstellen
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'task-actions';
+    actionsDiv.appendChild(editButton);
     actionsDiv.appendChild(deleteButton); 
 
-    // 6. Alles in der gewünschten Reihenfolge zur Card hinzufügen: [Checkbox] | [Text] | [Button]
+    // 6. Alles in der gewünschten Reihenfolge zur Card hinzufügen: [Checkbox] | [Content] | [Actions]
     card.appendChild(checkbox);
-    card.appendChild(titleSpan);
+    card.appendChild(contentDiv);
     card.appendChild(actionsDiv);
     
     return card;
+}
+
+// Helper function to format date
+function formatDate(dateString) {
+    const date = new Date(dateString + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+        return 'Heute';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+        return 'Morgen';
+    } else {
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
 }
 
 // ===================================
@@ -462,8 +576,19 @@ addTaskForm.addEventListener('submit', async (e) => {
     if (!isLoggedIn) return;
 
     const title = taskTitleInput.value.trim();
-    if (!title) return;
+    if (!title) {
+        showValidationError('Bitte geben Sie einen Titel ein.');
+        return;
+    }
+    
+    if (title.length > 255) {
+        showValidationError('Der Titel darf maximal 255 Zeichen lang sein.');
+        return;
+    }
 
+    const description = taskDescriptionInput ? taskDescriptionInput.value.trim() : '';
+    const dueDate = taskDueDateInput ? taskDueDateInput.value : '';
+    const priority = taskPriorityInput ? taskPriorityInput.value : 'medium';
     const tagsRaw = taskTagsInput ? taskTagsInput.value : '';
     const tags = tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0);
 
@@ -476,11 +601,24 @@ addTaskForm.addEventListener('submit', async (e) => {
                 'Content-Type': 'application/json',
                 'X-CSRF-Token': csrfToken
             },
-            body: JSON.stringify({ title: title, tags: tags })
+            body: JSON.stringify({ 
+                title: title, 
+                description: description || null,
+                due_date: dueDate || null,
+                priority: priority,
+                tags: tags 
+            })
         });
 
+        const data = await response.json();
+        
         if (response.ok) {
             taskTitleInput.value = '';
+            if (taskDescriptionInput) taskDescriptionInput.value = '';
+            if (taskDueDateInput) taskDueDateInput.value = '';
+            if (taskPriorityInput) taskPriorityInput.value = 'medium';
+            if (taskTagsInput) taskTagsInput.value = '';
+            
             await fetchTagsAndRenderBar();
             if (currentFilter !== 'all') {
                 setActiveFilter('all', filterAllButton); 
@@ -488,10 +626,11 @@ addTaskForm.addEventListener('submit', async (e) => {
                 await fetchTasks();
             }
         } else {
-            alert('Fehler beim Hinzufügen der Aufgabe.');
+            showValidationError(data.error || 'Fehler beim Hinzufügen der Aufgabe.');
         }
     } catch (error) {
         console.error('Add error:', error);
+        showValidationError('Ein Netzwerkfehler ist aufgetreten.');
     } finally {
         addButton.removeAttribute('loading');
     }
@@ -522,10 +661,48 @@ async function toggleTask(id) {
 
             renderTasks(); 
         } else {
-            alert('Fehler beim Ändern des Status.');
+            showValidationError('Fehler beim Ändern des Status.');
         }
     } catch (error) {
         console.error('Toggle error:', error);
+        showValidationError('Ein Netzwerkfehler ist aufgetreten.');
+    }
+}
+
+// ===================================
+// C2. UPDATE: Task bearbeiten
+// ===================================
+async function editTask(id, title, description, dueDate, priority, tags) {
+    if (!isLoggedIn) return;
+
+    try {
+        const response = await fetch('api.php?action=edit', {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ 
+                id: id,
+                title: title,
+                description: description || null,
+                due_date: dueDate || null,
+                priority: priority,
+                tags: tags
+            })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            await fetchTasks();
+            await fetchTagsAndRenderBar();
+        } else {
+            showValidationError(data.error || 'Fehler beim Aktualisieren der Aufgabe.');
+        }
+    } catch (error) {
+        console.error('Edit error:', error);
+        showValidationError('Ein Netzwerkfehler ist aufgetreten.');
     }
 }
 
@@ -625,6 +802,110 @@ function handleCancelClick(event) {
     event.preventDefault(); 
     currentTaskIdToDelete = null;
     console.log(`Deletion cancelled (direct listener).`);
+}
+
+// ===================================
+// F. WA DIALOG (Modal) für Task-Bearbeitung
+// ===================================
+
+function showEditDialog(task) {
+    const dialogId = 'editDialog';
+    let dialog = document.getElementById(dialogId);
+    
+    if (!dialog) {
+        dialog = document.createElement('wa-dialog');
+        dialog.id = dialogId;
+        dialog.setAttribute('label', 'Aufgabe bearbeiten');
+        dialog.style.setProperty('--width', '600px');
+        document.body.appendChild(dialog);
+    }
+    
+    // Format tags as comma-separated string
+    const tagsString = Array.isArray(task.tags) ? task.tags.join(', ') : '';
+    
+    dialog.innerHTML = `
+        <form id="editTaskForm">
+            <wa-input type="text" id="editTaskTitle" placeholder="Titel" size="large" required value="${escapeHtml(task.title)}" style="margin-bottom: 1rem;">
+                <i class="fas fa-keyboard" slot="start"></i>
+            </wa-input>
+            
+            <wa-textarea id="editTaskDescription" placeholder="Beschreibung (optional)" size="small" rows="3" style="margin-bottom: 1rem;">${escapeHtml(task.description || '')}</wa-textarea>
+            
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <wa-input type="date" id="editTaskDueDate" placeholder="Fälligkeitsdatum" size="medium" value="${task.due_date || ''}" style="flex: 1; min-width: 200px;">
+                    <i class="fas fa-calendar" slot="start"></i>
+                </wa-input>
+                
+                <wa-select id="editTaskPriority" placeholder="Priorität" size="medium" value="${task.priority || 'medium'}" style="flex: 1; min-width: 150px;">
+                    <wa-option value="low" ${task.priority === 'low' ? 'selected' : ''}>Niedrig</wa-option>
+                    <wa-option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Mittel</wa-option>
+                    <wa-option value="high" ${task.priority === 'high' ? 'selected' : ''}>Hoch</wa-option>
+                </wa-select>
+            </div>
+            
+            <wa-input type="text" id="editTaskTags" placeholder="Tags (z.B. Arbeit, Privat)" size="medium" value="${escapeHtml(tagsString)}" style="margin-bottom: 1rem;">
+                <i class="fas fa-tags" slot="end"></i>
+            </wa-input>
+        </form>
+        
+        <wa-button slot="footer" id="cancelEditButton" data-dialog="close">Abbrechen</wa-button>
+        <wa-button slot="footer" variant="primary" id="confirmEditButton" appearance="filled">
+            <i class="fas fa-save" slot="start"></i> Speichern
+        </wa-button>
+    `;
+
+    customElements.whenDefined('wa-dialog').then(() => {
+        const confirmButton = dialog.querySelector('#confirmEditButton');
+        const cancelButton = dialog.querySelector('#cancelEditButton');
+        const form = dialog.querySelector('#editTaskForm');
+
+        // Handle save
+        const handleSave = async (event) => {
+            event.preventDefault();
+            
+            const title = dialog.querySelector('#editTaskTitle').value.trim();
+            const description = dialog.querySelector('#editTaskDescription').value.trim();
+            const dueDate = dialog.querySelector('#editTaskDueDate').value;
+            const priority = dialog.querySelector('#editTaskPriority').value;
+            const tagsRaw = dialog.querySelector('#editTaskTags').value;
+            const tags = tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0);
+            
+            if (!title) {
+                showValidationError('Bitte geben Sie einen Titel ein.');
+                return;
+            }
+            
+            if (title.length > 255) {
+                showValidationError('Der Titel darf maximal 255 Zeichen lang sein.');
+                return;
+            }
+            
+            confirmButton.setAttribute('loading', '');
+            
+            await editTask(task.id, title, description, dueDate, priority, tags);
+            
+            confirmButton.removeAttribute('loading');
+            dialog.hide();
+        };
+
+        confirmButton.removeEventListener('click', handleSave);
+        confirmButton.addEventListener('click', handleSave);
+        
+        form.removeEventListener('submit', handleSave);
+        form.addEventListener('submit', handleSave);
+
+        window.requestAnimationFrame(() => {
+            dialog.show();
+        });
+    });
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // DOM-Elemente abrufen
