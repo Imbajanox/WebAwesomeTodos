@@ -21,6 +21,11 @@
 				<wa-button id="logoutButton" variant="neutral" size="small" style="margin-left: 0.5rem;">
 					<i class="fas fa-right-from-bracket" slot="start"></i> Logout
 				</wa-button>
+				<a href="changelog.php" style="text-decoration: none; margin-left: 0.5rem;">
+					<wa-button variant="neutral" size="small">
+						<i class="fas fa-clock-rotate-left" slot="start"></i> Changelog
+					</wa-button>
+				</a>
 				<wa-button id="themeToggleButton" variant="neutral" size="small" style="margin-right: 0.5rem;">
 				<wa-icon name="sun" label="Sun" id="themeIcon"></wa-icon>
 				</wa-button>
@@ -58,6 +63,9 @@
 
 					<p style="margin-top: 1rem; text-align: center;">
 						<a href="#" id="toggleAuthView">Noch kein Konto? Hier registrieren.</a>
+					</p>
+					<p style="margin-top: 0.5rem; text-align: center;">
+						<a href="changelog.php" style="font-size: 0.9rem;"><i class="fas fa-clock-rotate-left"></i>&nbsp;Changelog ansehen</a>
 					</p>
 					<div style="display: flex; justify-content: center;">
 						<wa-button id="themeToggleButtonAuth" variant="neutral" size="small" style="display: flex; justify-content: center; align-items: center;">
