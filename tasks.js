@@ -450,7 +450,11 @@ function renderTasks() {
         let message = 'Keine Aufgaben gefunden.';
         if (currentFilter === 'open') message = 'Alle Aufgaben erledigt! 🎉';
         if (currentFilter === 'completed') message = 'Keine abgeschlossenen Aufgaben.';
-        if (currentPriorityFilter !== 'all') message = `Keine Aufgaben mit Priorität "${currentPriorityFilter}" gefunden.`;
+        if (currentPriorityFilter !== 'all') {
+            // Escape HTML to prevent XSS
+            const escapedPriority = escapeHtml(currentPriorityFilter);
+            message = `Keine Aufgaben mit Priorität "${escapedPriority}" gefunden.`;
+        }
 
         taskListContainer.innerHTML = `
             <wa-callout variant="info">
