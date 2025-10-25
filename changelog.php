@@ -71,7 +71,10 @@
                 </wa-button>
             </a>
         </div>
-
+        <wa-callout variant="warning" icon="fas fa-exclamation-triangle">
+            <strong>Achtung:</strong> Diese Seite befindet sich noch in der Entwicklung. Datenverlust kann auftreten.
+        </wa-callout>
+        <wa-divider></wa-divider>
         <div class="version-section">
             <wa-card>
                 <div slot="header" class="version-header">
