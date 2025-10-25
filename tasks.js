@@ -878,7 +878,7 @@ function showEditDialog(task) {
                 <i class="fas fa-keyboard" slot="start"></i>
             </wa-input>
             
-            <wa-textarea id="editTaskDescription" placeholder="Beschreibung (optional)" size="small" rows="3" value="${escapeHtml(task.description || '')}" style="margin-bottom: 1rem;"></wa-textarea>
+            <wa-textarea id="editTaskDescription" placeholder="Beschreibung (optional)" size="small" rows="3" style="margin-bottom: 1rem;"></wa-textarea>
             
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
                 <wa-input type="date" id="editTaskDueDate" placeholder="Fälligkeitsdatum" size="medium" value="${task.due_date || ''}" style="flex: 1; min-width: 200px;">
@@ -907,6 +907,12 @@ function showEditDialog(task) {
         const confirmButton = dialog.querySelector('#confirmEditButton');
         const cancelButton = dialog.querySelector('#cancelEditButton');
         const form = dialog.querySelector('#editTaskForm');
+        const descriptionTextarea = dialog.querySelector('#editTaskDescription');
+        
+        // Set textarea value after component is defined
+        if (descriptionTextarea && task.description) {
+            descriptionTextarea.value = task.description;
+        }
 
         // Handle save
         const handleSave = async (event) => {
