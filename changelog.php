@@ -78,8 +78,42 @@
         <div class="version-section">
             <wa-card>
                 <div slot="header" class="version-header">
-                    <wa-badge variant="primary" size="large" class="version-number">v1.4.0</wa-badge>
-                    <span class="version-date">Aktuell</span>
+                    <wa-badge variant="primary" size="large" class="version-number">v2.0.0</wa-badge>
+                    <span class="version-date">Oktober 2025</span>
+                </div>
+                <div class="change-list">
+                    <div class="change-item">
+                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
+                        <span>Task-Bearbeitung mit Beschreibungen, Fälligkeitsdaten und Prioritäten</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
+                        <span>Sortierung nach Priorität, Fälligkeitsdatum oder Erstellungsdatum</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
+                        <span>Filterung nach Prioritätsstufe</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
+                        <span>Intelligente Datumsanzeige (Heute, Morgen, etc.)</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
+                        <span>Visuelle Prioritätsindikatoren mit Badges</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-plus" style="color: var(--wa-color-success);"></i>
+                        <span>Überfällige Aufgaben werden hervorgehoben</span>
+                    </div>
+                </div>
+            </wa-card>
+        </div>
+        <div class="version-section">
+            <wa-card>
+                <div slot="header" class="version-header">
+                    <wa-badge variant="neutral" size="large" class="version-number">v1.4.0</wa-badge>
+                    <span class="version-date">Oktober 2025</span>
                 </div>
                 <div class="change-list">
                     <div class="change-item">
