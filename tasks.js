@@ -14,6 +14,8 @@ const taskCounter = document.getElementById('taskCounter');
 const filterAllButton = document.getElementById('filterAll');
 const filterOpenButton = document.getElementById('filterOpen');
 const filterCompletedButton = document.getElementById('filterCompleted');
+const sortBySelect = document.getElementById('sortBy');
+const filterPrioritySelect = document.getElementById('filterPriority');
 
 // NEU: Auth-Elemente
 const taskManagerView = document.getElementById('taskManagerView');
@@ -35,6 +37,8 @@ const tagFilterBar = document.getElementById('tagFilterBar'); // NEU
 
 let allTasks = [];
 let currentFilter = 'all'; // Standardfilter
+let currentSortBy = 'default';
+let currentPriorityFilter = 'all';
 let isLoggedIn = false;
 let currentUsername = '';
 let csrfToken = ''; // CSRF token for requests
@@ -413,6 +417,31 @@ function renderTasks() {
     } else {
         tasksToRender = allTasks; // 'all'
     }
+    
+    // Filter by priority
+    if (currentPriorityFilter !== 'all') {
+        tasksToRender = tasksToRender.filter(task => task.priority === currentPriorityFilter);
+    }
+    
+    // Sort tasks
+    if (currentSortBy === 'priority') {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        tasksToRender.sort((a, b) => {
+            const aPriority = priorityOrder[a.priority] ?? 1;
+            const bPriority = priorityOrder[b.priority] ?? 1;
+            return aPriority - bPriority;
+        });
+    } else if (currentSortBy === 'due_date') {
+        tasksToRender.sort((a, b) => {
+            if (!a.due_date && !b.due_date) return 0;
+            if (!a.due_date) return 1;
+            if (!b.due_date) return -1;
+            return new Date(a.due_date) - new Date(b.due_date);
+        });
+    } else if (currentSortBy === 'created') {
+        tasksToRender.sort((a, b) => b.id - a.id); // Newer first
+    }
+    // default: already sorted by backend (is_completed ASC, created_at DESC)
 
     // 3. DOM aktualisieren
     taskListContainer.innerHTML = '';
@@ -421,6 +450,7 @@ function renderTasks() {
         let message = 'Keine Aufgaben gefunden.';
         if (currentFilter === 'open') message = 'Alle Aufgaben erledigt! 🎉';
         if (currentFilter === 'completed') message = 'Keine abgeschlossenen Aufgaben.';
+        if (currentPriorityFilter !== 'all') message = `Keine Aufgaben mit Priorität "${currentPriorityFilter}" gefunden.`;
 
         taskListContainer.innerHTML = `
             <wa-callout variant="info">
@@ -566,6 +596,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filterAllButton) filterAllButton.addEventListener('click', () => setActiveFilter('all', filterAllButton));
     if (filterOpenButton) filterOpenButton.addEventListener('click', () => setActiveFilter('open', filterOpenButton));
     if (filterCompletedButton) filterCompletedButton.addEventListener('click', () => setActiveFilter('completed', filterCompletedButton));
+    
+    // Sort and priority filter listeners
+    if (sortBySelect) {
+        sortBySelect.addEventListener('wa-change', (e) => {
+            currentSortBy = e.target.value;
+            renderTasks();
+        });
+    }
+    
+    if (filterPrioritySelect) {
+        filterPrioritySelect.addEventListener('wa-change', (e) => {
+            currentPriorityFilter = e.target.value;
+            renderTasks();
+        });
+    }
 });
 
 // ===================================
