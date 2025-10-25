@@ -105,14 +105,14 @@
 							Noch <span>0</span> offene Aufgaben
 						</wa-badge>
 						<div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-							<wa-select id="sortBy" placeholder="Sortieren" size="small" value="default" style="min-width: 160px;">
-								<wa-option value="default" selected>Standard</wa-option>
+							<wa-select id="sortBy" placeholder="Sortieren" size="small" style="min-width: 160px;">
+								<wa-option value="default">Standard</wa-option>
 								<wa-option value="priority">Nach Priorität</wa-option>
 								<wa-option value="due_date">Nach Fälligkeitsdatum</wa-option>
 								<wa-option value="created">Nach Erstellungsdatum</wa-option>
 							</wa-select>
-							<wa-select id="filterPriority" placeholder="Priorität" size="small" value="all" style="min-width: 140px;">
-								<wa-option value="all" selected>Alle Prioritäten</wa-option>
+							<wa-select id="filterPriority" placeholder="Priorität" size="small" style="min-width: 140px;">
+								<wa-option value="all">Alle Prioritäten</wa-option>
 								<wa-option value="high">Hoch</wa-option>
 								<wa-option value="medium">Mittel</wa-option>
 								<wa-option value="low">Niedrig</wa-option>

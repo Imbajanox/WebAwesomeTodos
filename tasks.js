@@ -603,14 +603,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Sort and priority filter listeners
     if (sortBySelect) {
-        sortBySelect.addEventListener('wa-change', (e) => {
+        sortBySelect.addEventListener('change', (e) => {
             currentSortBy = sortBySelect.value;
             renderTasks();
         });
     }
     
     if (filterPrioritySelect) {
-        filterPrioritySelect.addEventListener('wa-change', (e) => {
+        filterPrioritySelect.addEventListener('change', (e) => {
             currentPriorityFilter = filterPrioritySelect.value;
             renderTasks();
         });
@@ -897,8 +897,8 @@ function showEditDialog(task) {
             </wa-input>
         </form>
         
-        <wa-button slot="footer" id="cancelEditButton">Abbrechen</wa-button>
-        <wa-button slot="footer" variant="primary" id="confirmEditButton" appearance="filled">
+        <wa-button slot="footer" id="cancelEditButton" data-dialog="close">Abbrechen</wa-button>
+        <wa-button slot="footer" variant="primary" id="confirmEditButton" appearance="filled" data-dialog="close">
             <i class="fas fa-save" slot="start"></i> Speichern
         </wa-button>
     `;
