@@ -118,11 +118,4 @@ See `schema.sql` for complete table definitions.
 - Reordering via drag-and-drop
 - Convert to a PWA (offline-first)
 
-- ✅ ~~User authentication and authorization~~
-- ✅ ~~Tagging/categories~~
-- Add task editing and due dates
-- Full-text search across tasks
-- Reordering via drag-and-drop
-- Convert to a PWA (offline-first)
-
 
