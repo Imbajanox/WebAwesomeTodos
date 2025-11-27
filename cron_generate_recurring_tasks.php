@@ -5,7 +5,7 @@
  */
 
 // Configuration - CHANGE THESE VALUES
-$api_url = 'http://localhost/wa-todo/WebAwesomeTodos/api.php'; // Update with your actual domain
+$api_url = 'https://todo.imbajanox.de/api.php'; // Update with your actual domain
 $secret_key = 'GENERATE_RECURRING_TASKS_SECRET_KEY'; // Must match the key in api.php
 $log_file = __DIR__ . '/recurring_tasks.log'; // Log file location
 
@@ -27,7 +27,8 @@ $context = stream_context_create([
     'http' => [
         'timeout' => 30, // 30 seconds timeout
         'method' => 'GET',
-        'header' => "User-Agent: RecurringTasksCron/1.0\r\n"
+        'header' => "User-Agent: RecurringTasksCron/1.0\r\n",
+        'ignore_errors' => true
     ]
 ]);
 
@@ -37,6 +38,17 @@ if ($response === false) {
     $error = error_get_last();
     log_message("ERROR: Failed to call API endpoint. " . ($error['message'] ?? 'Unknown error'));
     exit(1);
+}
+
+// Check HTTP response code
+if (isset($http_response_header)) {
+    preg_match('{HTTP\/\S*\s(\d{3})}', $http_response_header[0], $match);
+    $status_code = $match[1] ?? 'unknown';
+    if ($status_code != 200) {
+        log_message("ERROR: API returned HTTP status code: " . $status_code);
+        log_message("Response body: " . $response);
+        exit(1);
+    }
 }
 
 // Parse the response
