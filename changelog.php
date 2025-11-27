@@ -78,6 +78,62 @@
         <div class="version-section">
             <wa-card>
                 <div slot="header" class="version-header">
+                    <wa-badge variant="success" size="large" class="version-number">v2.3</wa-badge>
+                    <span class="version-date">November 2025</span>
+                </div>
+                <div class="change-list">
+                    <div class="change-item">
+                        <i class="fas fa-check" style="color: var(--wa-color-success);"></i>
+                        <span>Anpassung des Formulars and die Wiederkehrenden Aufgaben</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-check" style="color: var(--wa-color-success);"></i>
+                        <span>Erstellungsformular in Modal ausgelagert</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-check" style="color: var(--wa-color-success);"></i>
+                        <span>Userguide eingefügt</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-check" style="color: var(--wa-color-success);"></i>
+                        <span>Wiederkehrende aufgaben werden automatisch nach vorgabe Erstellt</span>
+                    </div>
+                </div>
+            </wa-card>
+        </div>
+        <div class="version-section">
+            <wa-card>
+                <div slot="header" class="version-header">
+                    <wa-badge variant="success" size="large" class="version-number">v2.2.0</wa-badge>
+                    <span class="version-date">November 2025</span>
+                </div>
+                <div class="change-list">
+                    <div class="change-item">
+                        <i class="fas fa-search" style="color: var(--wa-color-success);"></i>
+                        <span>Volltext-Suche über Titel, Beschreibung und Tags</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-arrows-alt" style="color: var(--wa-color-success);"></i>
+                        <span>Drag-and-Drop Neuordnung von Aufgaben</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-bolt" style="color: var(--wa-color-success);"></i>
+                        <span>Intelligente Schnellfilter (Heute, Diese Woche, Überfällig)</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-sort" style="color: var(--wa-color-success);"></i>
+                        <span>Erweiterte Sortieroptionen inkl. benutzerdefinierter Reihenfolge</span>
+                    </div>
+                    <div class="change-item">
+                        <i class="fas fa-mobile-alt" style="color: var(--wa-color-success);"></i>
+                        <span>Mobile-optimierte Benutzeroberfläche mit Touch-Unterstützung</span>
+                    </div>
+                </div>
+            </wa-card>
+        </div>
+        <div class="version-section">
+            <wa-card>
+                <div slot="header" class="version-header">
                     <wa-badge variant="primary" size="large" class="version-number">v2.1.0</wa-badge>
                     <span class="version-date">Oktober 2025</span>
                 </div>

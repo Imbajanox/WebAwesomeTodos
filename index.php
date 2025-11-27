@@ -20,6 +20,11 @@
 				<wa-button id="logoutButton" variant="neutral" size="small" style="margin-left: 0.5rem;">
 					<i class="fas fa-right-from-bracket" slot="start"></i> Logout
 				</wa-button>
+				<a href="userguide.php" style="text-decoration: none; margin-left: 0.5rem;">
+					<wa-button variant="neutral" size="small">
+						<i class="fas fa-book" slot="start"></i> Userguide
+					</wa-button>
+				</a>
 				<a href="changelog.php" style="text-decoration: none; margin-left: 0.5rem;">
 					<wa-button variant="neutral" size="small">
 						<i class="fas fa-clock-rotate-left" slot="start"></i> Changelog
@@ -76,29 +81,10 @@
 			</div>
 			<div id="taskManagerView" style="display: none;"	>
 				<div>
-					<form id="addTaskForm" class="add-task-form" style="margin-bottom:1.25rem;">
-						<wa-input type="text" id="taskTitle" placeholder="Neue Aufgabe hinzufügen..." size="large" required style="flex:1 1 auto; min-width:0;">
-							<i class="fas fa-keyboard" slot="start"></i>
-						</wa-input>
-						<wa-textarea id="taskDescription" placeholder="Beschreibung (optional)" size="small" rows="2" style="flex:1 1 100%; min-width:0; margin-top:0.5rem;">
-						</wa-textarea>
-						<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
-							<wa-input type="date" id="taskDueDate" placeholder="Fälligkeitsdatum" size="medium" style="flex: 1; min-width: 160px;">
-								<i class="fas fa-calendar" slot="start"></i>
-							</wa-input>
-							<wa-select id="taskPriority" placeholder="Priorität" size="medium" value="medium" style="flex: 1; min-width: 140px;">
-								<wa-option value="low">Niedrig</wa-option>
-								<wa-option value="medium" selected>Mittel</wa-option>
-								<wa-option value="high">Hoch</wa-option>
-							</wa-select>
-							<wa-input type="text" id="taskTags" placeholder="Tags (z.B. Arbeit, Privat)" size="medium" style="flex: 1; min-width: 160px;">
-								<i class="fas fa-tags" slot="end"></i>
-							</wa-input>
-						</div>
-						<wa-button appearance="filled" variant="primary" type="submit" size="large" id="addButton" style="flex:0 0 auto; margin-top:0.5rem; width: 100%;">
-							<i class="fas fa-plus" slot="start"></i> Aufgabe hinzufügen
-						</wa-button>
-					</form>
+					<!-- Button to open the create task modal -->
+					<wa-button appearance="filled" variant="primary" size="large" id="openCreateTaskModal" style="margin-bottom:1.25rem; width: 100%;">
+						<i class="fas fa-plus" slot="start"></i> Neue Aufgabe erstellen
+					</wa-button>
 					<div class="task-controls main-controls" style="margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 0.5rem;">
 						<wa-badge variant="info" id="taskCounter" style="--wa-badge-padding-inline: 1rem;">
 							Noch <span>0</span> offene Aufgaben

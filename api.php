@@ -243,6 +243,28 @@ if ($request_method === 'GET' && $action === 'tags') {
     exit;
 }
 
+// Special endpoint for generating recurring tasks (for cron jobs)
+if ($request_method === 'GET' && $action === 'generate_recurring_tasks') {
+    // Add simple security with a secret key
+    $secret_key = $_GET['secret_key'] ?? '';
+    $expected_key = 'GENERATE_RECURRING_TASKS_SECRET_KEY'; // Change this to a secure key
+
+    if ($secret_key !== $expected_key) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Invalid secret key.']);
+        exit;
+    }
+
+    try {
+        generate_recurring_tasks($pdo);
+        echo json_encode(['success' => true, 'message' => 'Recurring tasks generated successfully.', 'timestamp' => date('Y-m-d H:i:s')]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to generate recurring tasks: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // =================================================================
 // 2. LOGIK: Autorisierungs-Check für Task-CRUD
 // =================================================================
@@ -286,17 +308,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['export']) && $_GET['exp
     $params = [$user_id];
 
     if ($filter === 'open') {
-        $sql .= " AND t.is_completed = 0";
+        $sql .= " AND t.is_completed = 0 AND t.is_recurring = 0";
     } elseif ($filter === 'completed') {
-        $sql .= " AND t.is_completed = 1";
+        $sql .= " AND t.is_completed = 1 AND t.is_recurring = 0";
     }
     if ($priority !== 'all') {
         $sql .= " AND t.priority = ?";
         $params[] = $priority;
     }
     if ($tag) {
-        $sql .= " AND tags.name = ?";
+        $sql .= " AND tags.name = ? AND t.is_recurring = 0";
         $params[] = $tag;
+    } else {
+        // Add base filter for non-recurring tasks
+        $sql .= " AND t.is_recurring = 0";
     }
 
     $sql .= " GROUP BY t.id ORDER BY t.due_date IS NULL, t.due_date ASC, t.created_at DESC";
@@ -425,7 +450,7 @@ switch ($request_method) {
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
                 LEFT JOIN tags ON tags.id = tt.tag_id
-                WHERE t.user_id = ? AND t.id IN (SELECT task_id FROM task_tags WHERE tag_id = ?)
+                WHERE t.user_id = ? AND t.is_recurring = 0 AND t.id IN (SELECT task_id FROM task_tags WHERE tag_id = ?)
                 GROUP BY t.id
                 $order_by
             ");
@@ -450,7 +475,7 @@ switch ($request_method) {
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
                 LEFT JOIN tags ON tags.id = tt.tag_id
-                WHERE t.user_id = ? AND t.id IN (
+                WHERE t.user_id = ? AND t.is_recurring = 0 AND t.id IN (
                     SELECT tt2.task_id FROM task_tags tt2 JOIN tags tg ON tg.id = tt2.tag_id WHERE tg.user_id = ? AND tg.name = ?
                 )
                 GROUP BY t.id
@@ -477,7 +502,7 @@ switch ($request_method) {
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
                 LEFT JOIN tags ON tags.id = tt.tag_id
-                WHERE t.user_id = ?
+                WHERE t.user_id = ? AND t.is_recurring = 0
                 GROUP BY t.id
                 $order_by
             ");
@@ -580,7 +605,7 @@ switch ($request_method) {
             } catch (\Exception $e) {
                 $pdo->rollBack();
                 http_response_code(500);
-                echo json_encode(['error' => 'Failed to create task.']);
+                echo json_encode(['error' => 'Failed to create task.' . $e->getMessage()]);
             }
         } else {
             http_response_code(400);
@@ -770,20 +795,64 @@ function create_enhanced_task($pdo, $user_id, $title, $description = null, $due_
                                $recurrence_pattern = null, $recurrence_interval = 1,
                                $recurrence_end_date = null) {
 
-    $stmt = $pdo->prepare("INSERT INTO `tasks` (title, description, due_date, priority, user_id,
-                                                   is_recurring, recurrence_pattern, recurrence_interval,
-                                                   recurrence_end_date, next_due_date, sort_order)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                                  (SELECT COALESCE(MAX(`sort_order`), 0) + 1 FROM `tasks` WHERE `user_id` = ? AND `is_completed` = 0))");
+    $template_id = null;
+    $first_instance_id = null;
 
-    $next_due = null;
-    if ($is_recurring && $due_date) {
+    if ($is_recurring) {
+        // Step 1: Create the recurring template (hidden from users)
         $next_due = calculate_next_due_date($due_date, $recurrence_pattern, $recurrence_interval);
-    }
 
-    $stmt->execute([$title, $description, $due_date, $priority, $user_id,
-                    $is_recurring, $recurrence_pattern, $recurrence_interval,
-                    $recurrence_end_date, $next_due, $user_id]);
+        $template_stmt = $pdo->prepare("INSERT INTO `tasks` (title, description, due_date, priority, user_id,
+                                                       is_recurring, recurrence_pattern, recurrence_interval,
+                                                       recurrence_end_date, next_due_date, sort_order)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)"); // Templates get sort_order 0
+
+        $template_stmt->execute([$title, $description, $due_date, $priority, $user_id,
+                                $is_recurring, $recurrence_pattern, $recurrence_interval,
+                                $recurrence_end_date, $next_due]);
+
+        $template_id = $pdo->lastInsertId();
+
+        // Step 2: Assign tags to the recurring template for future copying
+        if (is_array($tags_input) && count($tags_input) > 0) {
+            $insertRelation = $pdo->prepare("INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)");
+            foreach ($tags_input as $tname) {
+                $tname = trim((string)$tname);
+                if ($tname === '') continue;
+                $tag_id = get_or_create_tag($pdo, $user_id, $tname);
+                if ($tag_id) {
+                    $insertRelation->execute([$template_id, $tag_id]);
+                }
+            }
+        }
+
+        // Step 3: Create the first instance immediately with tags
+        $first_instance_id = create_single_task_instance(
+            $pdo, $user_id, $title, $description, $due_date, $priority, $tags_input
+        );
+
+        return $first_instance_id; // Return the first instance ID for immediate display
+    } else {
+        // Regular non-recurring task
+        return create_single_task_instance($pdo, $user_id, $title, $description, $due_date, $priority, $tags_input);
+    }
+}
+
+/**
+ * Create a single task instance (non-recurring)
+ */
+function create_single_task_instance($pdo, $user_id, $title, $description = null, $due_date = null,
+                                    $priority = 'medium', $tags_input = []) {
+    // Get the next sort_order for display tasks (exclude recurring templates)
+    $sort_stmt = $pdo->prepare("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM tasks WHERE user_id = ? AND is_recurring = 0");
+    $sort_stmt->execute([$user_id]);
+    $sort_order = $sort_stmt->fetchColumn();
+
+    $stmt = $pdo->prepare("INSERT INTO `tasks` (title, description, due_date, priority, user_id,
+                                                   is_recurring, sort_order)
+                           VALUES (?, ?, ?, ?, ?, 0, ?)");
+
+    $stmt->execute([$title, $description, $due_date, $priority, $user_id, $sort_order]);
 
     $task_id = $pdo->lastInsertId();
 

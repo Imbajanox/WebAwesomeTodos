@@ -3,7 +3,8 @@
     "allow": [
       "Bash(xxd:*)",
       "Bash(node:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(php:*)"
     ],
     "deny": [],
     "ask": []

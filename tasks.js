@@ -3,12 +3,7 @@
 // =================================================================
 
 const taskListContainer = document.getElementById('taskListContainer');
-const addTaskForm = document.getElementById('addTaskForm');
-const taskTitleInput = document.getElementById('taskTitle');
-const taskDescriptionInput = document.getElementById('taskDescription');
-const taskDueDateInput = document.getElementById('taskDueDate');
-const taskPriorityInput = document.getElementById('taskPriority');
-const addButton = document.getElementById('addButton');
+const openCreateTaskModal = document.getElementById('openCreateTaskModal');
 
 const taskCounter = document.getElementById('taskCounter');
 const filterAllButton = document.getElementById('filterAll');
@@ -31,7 +26,6 @@ const registerButton = document.getElementById('registerButton');
 const logoutButton = document.getElementById('logoutButton');
 const toggleAuthViewLink = document.getElementById('toggleAuthView');
 
-const taskTagsInput = document.getElementById('taskTags'); // NEU
 const tagFilterBar = document.getElementById('tagFilterBar'); // NEU
 
 // Phase 3: New elements for enhanced features
@@ -127,19 +121,22 @@ function showValidationError(message) {
     errorDiv.id = 'validationError';
     errorDiv.innerHTML = `<wa-callout variant="danger" closeable><i class="fas fa-exclamation-triangle" slot="icon"></i>${message}</wa-callout>`;
     errorDiv.style.marginBottom = '1rem';
-    
+
     // Remove any existing error messages
     const existing = document.getElementById('validationError');
     if (existing) existing.remove();
-    
-    // Insert before the form
-    addTaskForm.parentNode.insertBefore(errorDiv, addTaskForm);
-    
+
+    // Insert before the task manager view content or at the beginning of taskManagerView
+    const taskManagerView = document.getElementById('taskManagerView');
+    if (taskManagerView) {
+        taskManagerView.insertBefore(errorDiv, taskManagerView.firstChild.nextSibling);
+    }
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
         if (errorDiv.parentNode) errorDiv.remove();
     }, 5000);
-    
+
     // Allow manual close
     const callout = errorDiv.querySelector('wa-callout');
     if (callout) {
@@ -793,7 +790,9 @@ function setActiveFilter(filter, button) {
 document.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
     //fetchTasks();
-    
+
+    if (openCreateTaskModal) openCreateTaskModal.addEventListener('click', () => showCreateTaskDialog());
+
     if (filterAllButton) filterAllButton.addEventListener('click', () => setActiveFilter('all', filterAllButton));
     if (filterOpenButton) filterOpenButton.addEventListener('click', () => setActiveFilter('open', filterOpenButton));
     if (filterCompletedButton) filterCompletedButton.addEventListener('click', () => setActiveFilter('completed', filterCompletedButton));
@@ -855,72 +854,232 @@ if (exportIcsButton) {
 }
 
 // ===================================
-// B. CREATE: Neue Aufgabe hinzufügen
+// B. CREATE: Modal für neue Aufgabe anzeigen
 // ===================================
-addTaskForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); 
-    if (!isLoggedIn) return;
+function showCreateTaskDialog() {
+    const dialogId = 'createTaskDialog';
+    let dialog = document.getElementById(dialogId);
 
-    const title = taskTitleInput.value.trim();
-    if (!title) {
-        showValidationError('Bitte geben Sie einen Titel ein.');
-        return;
-    }
-    
-    if (title.length > 255) {
-        showValidationError('Der Titel darf maximal 255 Zeichen lang sein.');
-        return;
+    if (!dialog) {
+        dialog = document.createElement('wa-dialog');
+        dialog.id = dialogId;
+        dialog.setAttribute('label', 'Neue Aufgabe erstellen');
+        dialog.style.setProperty('--width', '650px');
+        document.body.appendChild(dialog);
     }
 
-    const description = taskDescriptionInput ? taskDescriptionInput.value.trim() : '';
-    const dueDate = taskDueDateInput ? taskDueDateInput.value : '';
-    const priority = taskPriorityInput ? taskPriorityInput.value : 'medium';
-    const tagsRaw = taskTagsInput ? taskTagsInput.value : '';
-    const tags = tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    dialog.innerHTML = `
+        <form id="createTaskForm">
+            <wa-input type="text" id="createTaskTitle" placeholder="Titel*" size="large" required style="margin-bottom: 1rem;">
+                <i class="fas fa-keyboard" slot="start"></i>
+            </wa-input>
 
-    addButton.setAttribute('loading', ''); 
-    
-    try {
-        const response = await fetch('api.php', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': csrfToken
-            },
-            body: JSON.stringify({ 
-                title: title, 
-                description: description || null,
-                due_date: dueDate || null,
-                priority: priority,
-                tags: tags 
-            })
-        });
+            <wa-textarea id="createTaskDescription" placeholder="Beschreibung (optional)" size="small" rows="3" style="margin-bottom: 1rem;"></wa-textarea>
 
-        const data = await response.json();
-        
-        if (response.ok) {
-            taskTitleInput.value = '';
-            if (taskDescriptionInput) taskDescriptionInput.value = '';
-            if (taskDueDateInput) taskDueDateInput.value = '';
-            if (taskPriorityInput) taskPriorityInput.value = 'medium';
-            if (taskTagsInput) taskTagsInput.value = '';
-            
-            await fetchTagsAndRenderBar();
-            if (currentFilter !== 'all') {
-                setActiveFilter('all', filterAllButton); 
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <wa-input type="date" id="createTaskDueDate" placeholder="Fälligkeitsdatum" size="medium" style="flex: 1; min-width: 200px;">
+                    <i class="fas fa-calendar" slot="start"></i>
+                </wa-input>
+
+                <wa-select id="createTaskPriority" placeholder="Priorität" size="medium" value="medium" style="flex: 1; min-width: 150px;">
+                    <wa-option value="low">Niedrig</wa-option>
+                    <wa-option value="medium" selected>Mittel</wa-option>
+                    <wa-option value="high">Hoch</wa-option>
+                </wa-select>
+            </div>
+
+            <wa-input type="text" id="createTaskTags" placeholder="Tags (z.B. Arbeit, Privat)" size="medium" style="margin-bottom: 1rem;">
+                <i class="fas fa-tags" slot="end"></i>
+            </wa-input>
+
+            <!-- Wiederkehrende Aufgabe Optionen -->
+            <div style="border-top: 1px solid var(--wa-color-neutral-200); padding-top: 1rem; margin-top: 1rem;">
+                <wa-checkbox id="isRecurring" style="margin-bottom: 1rem;">
+                    <i class="fas fa-repeat" slot="start"></i>
+                    Wiederkehrende Aufgabe
+                </wa-checkbox>
+
+                <div id="recurringOptions" style="display: none; margin-left: 2rem;">
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
+                        <wa-select id="recurrencePattern" placeholder="Wiederholung" size="medium" style="flex: 1; min-width: 150px;">
+                            <wa-option value="daily">Täglich</wa-option>
+                            <wa-option value="weekly">Wöchentlich</wa-option>
+                            <wa-option value="monthly">Monatlich</wa-option>
+                            <wa-option value="yearly">Jährlich</wa-option>
+                        </wa-select>
+
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <wa-input type="number" id="recurrenceInterval" value="1" min="1" max="999" size="small" style="width: 80px;"></wa-input>
+                            <span id="intervalLabel">Tag(e)</span>
+                        </div>
+                    </div>
+
+                    <wa-input type="date" id="recurrenceEndDate" placeholder="Enddatum (optional)" size="medium" style="margin-bottom: 1rem;">
+                        <i class="fas fa-calendar-xmark" slot="start"></i>
+                    </wa-input>
+
+                    <wa-callout variant="info" size="small">
+                        <i class="fas fa-info-circle" slot="icon"></i>
+                        Wiederkehrende Aufgaben erstellen automatisch neue Instanzen basierend auf dem gewählten Muster.
+                    </wa-callout>
+                </div>
+            </div>
+        </form>
+
+        <wa-button slot="footer" id="cancelCreateButton" data-dialog="close">Abbrechen</wa-button>
+        <wa-button slot="footer" variant="primary" id="confirmCreateButton" appearance="filled" data-dialog="close">
+            <i class="fas fa-plus" slot="start"></i> Aufgabe erstellen
+        </wa-button>
+    `;
+
+    customElements.whenDefined('wa-dialog').then(() => {
+        const confirmButton = dialog.querySelector('#confirmCreateButton');
+        const cancelButton = dialog.querySelector('#cancelCreateButton');
+        const form = dialog.querySelector('#createTaskForm');
+        const isRecurringCheckbox = dialog.querySelector('#isRecurring');
+        const recurringOptions = dialog.querySelector('#recurringOptions');
+        const recurrencePattern = dialog.querySelector('#recurrencePattern');
+        const recurrenceInterval = dialog.querySelector('#recurrenceInterval');
+        const intervalLabel = dialog.querySelector('#intervalLabel');
+
+        // Handle recurring options visibility
+        const toggleRecurringOptions = () => {
+            if (isRecurringCheckbox.checked) {
+                recurringOptions.style.display = 'block';
+                updateIntervalLabel();
             } else {
-                await fetchTasks();
+                recurringOptions.style.display = 'none';
             }
-        } else {
-            showValidationError(data.error || 'Fehler beim Hinzufügen der Aufgabe.');
-        }
-    } catch (error) {
-        console.error('Add error:', error);
-        showValidationError('Ein Netzwerkfehler ist aufgetreten.');
-    } finally {
-        addButton.removeAttribute('loading');
-    }
-});
+        };
+
+        // Update interval label based on pattern
+        const updateIntervalLabel = () => {
+            const pattern = recurrencePattern.value;
+            const labels = {
+                daily: 'Tag(e)',
+                weekly: 'Woche(n)',
+                monthly: 'Monat(e)',
+                yearly: 'Jahr(e)'
+            };
+            intervalLabel.textContent = labels[pattern] || 'Tag(e)';
+        };
+
+        // Event listeners
+        isRecurringCheckbox.addEventListener('change', toggleRecurringOptions);
+        recurrencePattern.addEventListener('change', updateIntervalLabel);
+
+        // Handle save
+        const handleSave = async (event) => {
+            event.preventDefault();
+
+            const title = dialog.querySelector('#createTaskTitle').value.trim();
+            const description = dialog.querySelector('#createTaskDescription').value.trim();
+            const dueDate = dialog.querySelector('#createTaskDueDate').value;
+            const priority = dialog.querySelector('#createTaskPriority').value;
+            const tagsRaw = dialog.querySelector('#createTaskTags').value;
+            const tags = tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+            if (!title) {
+                showValidationError('Bitte geben Sie einen Titel ein.');
+                return;
+            }
+
+            if (title.length > 255) {
+                showValidationError('Der Titel darf maximal 255 Zeichen lang sein.');
+                return;
+            }
+
+            // Validate recurring task requirements
+            if (isRecurringCheckbox.checked) {
+                if (!dueDate) {
+                    showValidationError('Fälligkeitsdatum ist für wiederkehrende Aufgaben erforderlich.');
+                    return;
+                }
+
+                const interval = parseInt(recurrenceInterval.value);
+                if (interval < 1 || interval > 999) {
+                    showValidationError('Intervall muss zwischen 1 und 999 liegen.');
+                    return;
+                }
+
+                const endDate = dialog.querySelector('#recurrenceEndDate').value;
+                if (endDate && endDate < dueDate) {
+                    showValidationError('Enddatum muss nach dem Fälligkeitsdatum liegen.');
+                    return;
+                }
+            }
+
+            confirmButton.setAttribute('loading', '');
+
+            try {
+                const requestBody = {
+                    title: title,
+                    description: description || null,
+                    due_date: dueDate || null,
+                    priority: priority,
+                    tags: tags
+                };
+
+                // Add recurring task fields if enabled
+                if (isRecurringCheckbox.checked) {
+                    requestBody.is_recurring = 1;
+                    requestBody.recurrence_pattern = recurrencePattern.value;
+                    requestBody.recurrence_interval = parseInt(recurrenceInterval.value);
+                    const endDate = dialog.querySelector('#recurrenceEndDate').value;
+                    if (endDate) {
+                        requestBody.recurrence_end_date = endDate;
+                    }
+                } else {
+                    requestBody.is_recurring = 0;
+                }
+
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    await fetchTagsAndRenderBar();
+                    await fetchTasks();
+                    dialog.open = false;
+                } else {
+                    showValidationError(data.error || 'Fehler beim Erstellen der Aufgabe.');
+                }
+            } catch (error) {
+                console.error('Create error:', error);
+                showValidationError('Ein Netzwerkfehler ist aufgetreten.');
+            } finally {
+                confirmButton.removeAttribute('loading');
+            }
+        };
+
+        // Handle cancel
+        const handleCancel = (event) => {
+            event.preventDefault();
+            dialog.open = false;
+        };
+
+        confirmButton.removeEventListener('click', handleSave);
+        cancelButton.removeEventListener('click', handleCancel);
+        form.removeEventListener('submit', handleSave);
+
+        confirmButton.addEventListener('click', handleSave);
+        cancelButton.addEventListener('click', handleCancel);
+        form.addEventListener('submit', handleSave);
+
+        window.requestAnimationFrame(() => {
+            dialog.open = true;
+            // Focus on title input
+            dialog.querySelector('#createTaskTitle').focus();
+        });
+    });
+}
 
 
 // ===================================
@@ -1064,7 +1223,7 @@ function showDeleteDialog(id, title) {
         cancelButton.addEventListener('click', handleCancelClick);
 
         window.requestAnimationFrame(() => {
-            dialog.show(); 
+            dialog.open = true; 
         });
     });
 }
@@ -1177,13 +1336,13 @@ function showEditDialog(task) {
             await editTask(task.id, title, description, dueDate, priority, tags);
             
             confirmButton.removeAttribute('loading');
-            dialog.hide();
+            dialog.open = false;
         };
         
         // Handle cancel
         const handleCancel = (event) => {
             event.preventDefault();
-            dialog.hide();
+            dialog.open = false;
         };
 
         confirmButton.removeEventListener('click', handleSave);
@@ -1196,7 +1355,7 @@ function showEditDialog(task) {
         form.addEventListener('submit', handleSave);
 
         window.requestAnimationFrame(() => {
-            dialog.show();
+            dialog.open = true;
         });
     });
 }
@@ -1681,58 +1840,6 @@ function updateIntervalLabel() {
     intervalLabel.textContent = labels[pattern] || 'Tag(e)';
 }
 
-/**
- * Saves a recurring task
- */
-async function saveRecurringTask() {
-    const title = taskTitleInput.value.trim();
-    const description = taskDescriptionInput.value.trim();
-    const dueDate = taskDueDateInput.value;
-    const priority = taskPriorityInput.value;
-    const tags = taskTagsInput ? taskTagsInput.value.trim() : '';
-
-    const pattern = document.getElementById('recurrencePattern').value;
-    const interval = parseInt(document.getElementById('recurrenceInterval').value);
-    const endDate = document.getElementById('recurrenceEndDate').value;
-
-    if (!title) {
-        showValidationError('Titel ist erforderlich');
-        return;
-    }
-
-    try {
-        const response = await fetch('api.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': csrfToken
-            },
-            body: JSON.stringify({
-                title,
-                description,
-                due_date: dueDate,
-                priority,
-                tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-                is_recurring: 1,
-                recurrence_pattern: pattern,
-                recurrence_interval: interval,
-                recurrence_end_date: endDate
-            })
-        });
-
-        if (response.ok) {
-            document.body.removeChild(document.querySelector('wa-card').parentElement);
-            addTaskForm.reset();
-            await fetchTasks();
-        } else {
-            const data = await response.json();
-            showValidationError(data.error || 'Fehler beim Erstellen der wiederkehrenden Aufgabe');
-        }
-    } catch (error) {
-        console.error('Error creating recurring task:', error);
-        showValidationError('Netzwerkfehler aufgetreten');
-    }
-}
 
 // -> Eventlistener hinzufügen (z. B. in DOMContentLoaded bereits vorhandene Listener ergänzen)
 document.addEventListener('DOMContentLoaded', () => {
