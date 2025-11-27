@@ -369,10 +369,162 @@ wa-checkbox::part(control) {
     .button-header-right {
         align-items: flex-start; /* damit die rechte Sektion unter der linken sauber beginnt */
     }
-    
+
     .button-header-left wa-button-group,
     .button-header-right wa-button-group {
         width: 100%;
         justify-content: flex-start;
+    }
+}
+
+/* =================================================================
+/* Phase 3: Enhanced User Experience Styles
+/* ================================================================= */
+
+/* Drag and Drop Styles */
+.task-list {
+    min-height: 200px; /* Minimum height for drag/drop area */
+}
+
+wa-card.draggable-task {
+    cursor: move;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+wa-card.draggable-task:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+wa-card.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+    z-index: 1000;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+}
+
+/* Drop zone visual feedback */
+wa-card.drag-over {
+    border: 2px dashed var(--wa-color-primary-500);
+    background-color: var(--wa-color-primary-50);
+}
+
+/* Search Input Highlight */
+#searchInput:focus {
+    --wa-input-border-color: var(--wa-color-primary-500);
+    --wa-input-box-shadow: 0 0 0 3px var(--wa-color-primary-200);
+}
+
+/* Task List Improvements */
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+wa-card.draggable-task {
+    position: relative;
+}
+
+/* Drag handle indicator */
+wa-card.draggable-task::before {
+    content: '⋮⋮';
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--wa-color-neutral-400);
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+wa-card.draggable-task:hover::before {
+    opacity: 1;
+}
+
+/* Enhanced Search Results */
+.task-card.search-highlight {
+    border-left: 4px solid var(--wa-color-primary-500);
+}
+
+.task-title.search-match,
+.task-description.search-match {
+    background: linear-gradient(120deg, transparent 0%, var(--wa-color-warning-200) 50%, transparent 100%);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* Recurring Task Indicator */
+wa-card.recurring {
+    border-left: 4px solid var(--wa-color-success-500);
+}
+
+wa-card.recurring .task-title::after {
+    content: '🔄';
+    margin-left: 0.5rem;
+    font-size: 0.8em;
+}
+
+/* Smart Filter Enhancement */
+#filterPresets {
+    --wa-select-border-color: var(--wa-color-success-500);
+}
+
+#filterPresets:focus {
+    --wa-select-border-color: var(--wa-color-success-600);
+}
+
+/* Sort Order Visual */
+wa-card.sort-order-changed {
+    animation: sortPulse 0.5s ease-in-out;
+}
+
+@keyframes sortPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    100% { transform: scale(1); }
+}
+
+/* Improved Task Actions */
+.task-actions {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+wa-card:hover .task-actions {
+    opacity: 1;
+}
+
+/* Loading State for Search */
+.search-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Empty State Enhancement */
+.task-list:empty::before {
+    content: '📋';
+    display: block;
+    text-align: center;
+    font-size: 3rem;
+    opacity: 0.3;
+    margin-bottom: 1rem;
+}
+
+/* Mobile Drag/Drop Improvements */
+@media (max-width: 480px) {
+    wa-card.draggable-task::before {
+        display: none; /* Hide drag handle on very small screens */
+    }
+
+    wa-card.draggable-task {
+        margin-bottom: 0.5rem;
+    }
+
+    .task-list {
+        gap: 0.5rem;
     }
 }

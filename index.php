@@ -104,11 +104,24 @@
 							Noch <span>0</span> offene Aufgaben
 						</wa-badge>
 						<div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+							<!-- Search functionality -->
+							<wa-input type="text" id="searchInput" placeholder="Aufgaben durchsuchen..." size="small" style="min-width: 180px;">
+								<i class="fas fa-search" slot="start"></i>
+							</wa-input>
+							<!-- Smart filter presets -->
+							<wa-select id="filterPresets" placeholder="Schnellfilter" size="small" style="min-width: 140px;">
+								<wa-option value="all">Alle Aufgaben</wa-option>
+								<wa-option value="today">Heute fällig</wa-option>
+								<wa-option value="week">Diese Woche</wa-option>
+								<wa-option value="highpriority">Hohe Priorität</wa-option>
+								<wa-option value="overdue">Überfällig</wa-option>
+							</wa-select>
 							<wa-select id="sortBy" placeholder="Sortieren" size="small" style="min-width: 160px;">
 								<wa-option value="default">Standard</wa-option>
 								<wa-option value="priority">Nach Priorität</wa-option>
 								<wa-option value="due_date">Nach Fälligkeitsdatum</wa-option>
 								<wa-option value="created">Nach Erstellungsdatum</wa-option>
+								<wa-option value="sort_order">Benutzerdefiniert</wa-option>
 							</wa-select>
 							<wa-select id="filterPriority" placeholder="Priorität" size="small" style="min-width: 140px;">
 								<wa-option value="all">Alle Prioritäten</wa-option>

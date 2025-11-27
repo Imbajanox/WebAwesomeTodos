@@ -44,7 +44,7 @@ try {
 
 header('Content-Type: application/json');
 
-$input = json_decode(file_get_contents('php://input'), true);
+
 $request_method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
@@ -142,6 +142,8 @@ function get_tags_for_task(PDO $pdo, int $task_id) {
 // =================================================================
 
 if ($request_method === 'POST') {
+    $raw_input = file_get_contents('php://input');
+    $input = json_decode($raw_input, true);
     switch ($action) {
         case 'register':
             if (isset($input['username'], $input['password'])) {
@@ -275,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['export']) && $_GET['exp
 
     // SQL ähnlich wie im normalen GET
     $sql = "
-        SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed, t.created_at
+        SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed, t.created_at, t.sort_order
         FROM tasks t
         LEFT JOIN task_tags tt ON t.id = tt.task_id
         LEFT JOIN tags ON tags.id = tt.tag_id
@@ -401,23 +403,50 @@ switch ($request_method) {
     case 'GET':
         $tag_id = isset($_GET['tag_id']) ? (int)$_GET['tag_id'] : null;
         $tag_name = isset($_GET['tag']) ? trim($_GET['tag']) : null;
+        $sort_by = isset($_GET['sort_by']) ? trim($_GET['sort_by']) : 'default';
 
         if ($tag_id) {
+            $order_by = "ORDER BY t.is_completed ASC, ";
+            if ($sort_by === 'sort_order') {
+                $order_by .= "t.sort_order ASC";
+            } elseif ($sort_by === 'priority') {
+                $order_by .= "FIELD(t.priority, 'high', 'medium', 'low') ASC, t.created_at DESC";
+            } elseif ($sort_by === 'due_date') {
+                $order_by .= "t.due_date IS NULL ASC, t.due_date ASC, t.created_at DESC";
+            } elseif ($sort_by === 'created') {
+                $order_by .= "t.created_at DESC";
+            } else {
+                $order_by .= "t.created_at DESC"; // default
+            }
+
             $stmt = $pdo->prepare("
                 SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed,
-                       GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
+                       t.sort_order, GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
                 LEFT JOIN tags ON tags.id = tt.tag_id
                 WHERE t.user_id = ? AND t.id IN (SELECT task_id FROM task_tags WHERE tag_id = ?)
                 GROUP BY t.id
-                ORDER BY t.is_completed ASC, t.created_at DESC
+                $order_by
             ");
             $stmt->execute([$user_id, $tag_id]);
-        } elseif ($tag_name) {
+          } elseif ($tag_name) {
+            $order_by = "ORDER BY t.is_completed ASC, ";
+            if ($sort_by === 'sort_order') {
+                $order_by .= "t.sort_order ASC";
+            } elseif ($sort_by === 'priority') {
+                $order_by .= "FIELD(t.priority, 'high', 'medium', 'low') ASC, t.created_at DESC";
+            } elseif ($sort_by === 'due_date') {
+                $order_by .= "t.due_date IS NULL ASC, t.due_date ASC, t.created_at DESC";
+            } elseif ($sort_by === 'created') {
+                $order_by .= "t.created_at DESC";
+            } else {
+                $order_by .= "t.created_at DESC"; // default
+            }
+
             $stmt = $pdo->prepare("
                 SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed,
-                       GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
+                       t.sort_order, GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
                 LEFT JOIN tags ON tags.id = tt.tag_id
@@ -425,19 +454,32 @@ switch ($request_method) {
                     SELECT tt2.task_id FROM task_tags tt2 JOIN tags tg ON tg.id = tt2.tag_id WHERE tg.user_id = ? AND tg.name = ?
                 )
                 GROUP BY t.id
-                ORDER BY t.is_completed ASC, t.created_at DESC
+                $order_by
             ");
             $stmt->execute([$user_id, $user_id, $tag_name]);
         } else {
+            $order_by = "ORDER BY t.is_completed ASC, ";
+            if ($sort_by === 'sort_order') {
+                $order_by .= "t.sort_order ASC";
+            } elseif ($sort_by === 'priority') {
+                $order_by .= "FIELD(t.priority, 'high', 'medium', 'low') ASC, t.created_at DESC";
+            } elseif ($sort_by === 'due_date') {
+                $order_by .= "t.due_date IS NULL ASC, t.due_date ASC, t.created_at DESC";
+            } elseif ($sort_by === 'created') {
+                $order_by .= "t.created_at DESC";
+            } else {
+                $order_by .= "t.created_at DESC"; // default
+            }
+
             $stmt = $pdo->prepare("
                 SELECT t.id, t.title, t.description, t.due_date, t.priority, t.is_completed,
-                       GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
+                       t.sort_order, GROUP_CONCAT(tags.name SEPARATOR ',') AS tags
                 FROM tasks t
                 LEFT JOIN task_tags tt ON t.id = tt.task_id
                 LEFT JOIN tags ON tags.id = tt.tag_id
                 WHERE t.user_id = ?
                 GROUP BY t.id
-                ORDER BY t.is_completed ASC, t.created_at DESC
+                $order_by
             ");
             $stmt->execute([$user_id]);
         }
@@ -454,12 +496,20 @@ switch ($request_method) {
 
     // B. CREATE (Neue Aufgabe hinzufügen)
     case 'POST':
+        $raw_input = file_get_contents('php://input');
+        $input = json_decode($raw_input, true);
         if (isset($input['title']) && !empty(trim($input['title']))) {
             $title = trim($input['title']);
             $description = isset($input['description']) ? trim($input['description']) : null;
             $due_date = isset($input['due_date']) ? trim($input['due_date']) : null;
             $priority = isset($input['priority']) ? trim($input['priority']) : 'medium';
             $tags_input = $input['tags'] ?? []; // optional: array of tag names
+
+            // Phase 3: Recurring task parameters
+            $is_recurring = isset($input['is_recurring']) ? (int)$input['is_recurring'] : 0;
+            $recurrence_pattern = isset($input['recurrence_pattern']) ? trim($input['recurrence_pattern']) : null;
+            $recurrence_interval = isset($input['recurrence_interval']) ? (int)$input['recurrence_interval'] : 1;
+            $recurrence_end_date = isset($input['recurrence_end_date']) ? trim($input['recurrence_end_date']) : null;
             
             // Validate title length (max 255 chars per schema)
             $titleValidation = validate_input_length($title, 255, 'Title');
@@ -474,6 +524,34 @@ switch ($request_method) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Priority must be low, medium, or high.']);
                 break;
+            }
+
+            // Phase 3: Validate recurring task parameters
+            if ($is_recurring) {
+                $valid_patterns = ['daily', 'weekly', 'monthly', 'yearly'];
+                if (!in_array($recurrence_pattern, $valid_patterns)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Recurrence pattern must be daily, weekly, monthly, or yearly.']);
+                    break;
+                }
+                if ($recurrence_interval < 1 || $recurrence_interval > 999) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Recurrence interval must be between 1 and 999.']);
+                    break;
+                }
+                if ($recurrence_end_date) {
+                    $end_date = \DateTime::createFromFormat('Y-m-d', $recurrence_end_date);
+                    if (!$end_date || $end_date->format('Y-m-d') !== $recurrence_end_date) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Recurrence end date must be in YYYY-MM-DD format.']);
+                        break;
+                    }
+                }
+                if (!$due_date) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Due date is required for recurring tasks.']);
+                    break;
+                }
             }
             
             // Validate due_date format if provided
@@ -490,23 +568,12 @@ switch ($request_method) {
 
             $pdo->beginTransaction();
             try {
-                $stmt = $pdo->prepare("INSERT INTO tasks (title, description, due_date, priority, is_completed, user_id) VALUES (?, ?, ?, ?, 0, ?)");
-                $stmt->execute([$title, $description, $due_date, $priority, $user_id]);
-                $task_id = (int)$pdo->lastInsertId();
-
-                // Tags verarbeiten (falls vorhanden)
-                if (is_array($tags_input) && count($tags_input) > 0) {
-                    $insertRelation = $pdo->prepare("INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)");
-                    foreach ($tags_input as $tname) {
-                        $tname = trim((string)$tname);
-                        if ($tname === '') continue;
-                        // Note: Invalid tags (too long) are silently skipped by get_or_create_tag
-                        $tag_id = get_or_create_tag($pdo, $user_id, $tname);
-                        if ($tag_id) {
-                            $insertRelation->execute([$task_id, $tag_id]);
-                        }
-                    }
-                }
+                // Use enhanced creation function with recurring task support
+                $task_id = create_enhanced_task(
+                    $pdo, $user_id, $title, $description, $due_date,
+                    $priority, $tags_input, $is_recurring,
+                    $recurrence_pattern, $recurrence_interval, $recurrence_end_date
+                );
 
                 $pdo->commit();
                 echo json_encode(['success' => true, 'id' => $task_id, 'title' => $title]);
@@ -523,7 +590,40 @@ switch ($request_method) {
 
     // C. UPDATE (Status umschalten oder Task bearbeiten)
     case 'PUT':
-        if ($action === 'toggle' && isset($input['id'])) {
+        $raw_input = file_get_contents('php://input');
+        $input = json_decode($raw_input, true);
+
+        if ($action === 'updateSortOrder') {
+            // PHASE 3: Update sort order (drag-and-drop)
+            if (!isset($input) || $input === null) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Input variable missing or JSON decode failed.']);
+                exit;
+            }
+            if (isset($input['sort_updates']) && is_array($input['sort_updates'])) {
+                $pdo->beginTransaction();
+                try {
+                    $stmt = $pdo->prepare("UPDATE tasks SET sort_order = ? WHERE id = ? AND user_id = ?");
+
+                    foreach ($input['sort_updates'] as $update) {
+                        if (isset($update['id']) && isset($update['sort_order'])) {
+                            $stmt->execute([$update['sort_order'], $update['id'], $user_id]);
+                        }
+                    }
+
+                    $pdo->commit();
+                    echo json_encode(['success' => true]);
+                } catch (\Exception $e) {
+                    $pdo->rollBack();
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Failed to update sort order.' . $e->getMessage()]);
+                }
+            } else {
+                http_response_code(400);
+                echo json_encode(['error' => 'Sort updates are required.']);
+            }
+            exit;
+        } elseif ($action === 'toggle' && isset($input['id'])) {
             $id = $input['id'];
 
             $stmt = $pdo->prepare("SELECT is_completed FROM tasks WHERE id = ? AND user_id = ?");
@@ -542,7 +642,7 @@ switch ($request_method) {
         } elseif ($action === 'edit' && isset($input['id'])) {
             // Edit task endpoint
             $id = $input['id'];
-            
+
             // Verify task exists and belongs to user
             $stmt = $pdo->prepare("SELECT id FROM tasks WHERE id = ? AND user_id = ?");
             $stmt->execute([$id, $user_id]);
@@ -551,21 +651,21 @@ switch ($request_method) {
                 echo json_encode(['error' => 'Task not found or unauthorized.']);
                 break;
             }
-            
+
             // Collect and validate fields
             $title = isset($input['title']) ? trim($input['title']) : null;
             $description = isset($input['description']) ? trim($input['description']) : null;
             $due_date = isset($input['due_date']) ? trim($input['due_date']) : null;
             $priority = isset($input['priority']) ? trim($input['priority']) : null;
             $tags_input = $input['tags'] ?? null;
-            
+
             // Title is required
             if (empty($title)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Title is required.']);
                 break;
             }
-            
+
             // Validate title length
             $titleValidation = validate_input_length($title, 255, 'Title');
             if (!$titleValidation['valid']) {
@@ -573,14 +673,14 @@ switch ($request_method) {
                 echo json_encode(['error' => $titleValidation['error']]);
                 break;
             }
-            
+
             // Validate priority
             if ($priority !== null && !in_array($priority, ['low', 'medium', 'high'])) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Priority must be low, medium, or high.']);
                 break;
             }
-            
+
             // Validate due_date format if provided
             if ($due_date && !empty($due_date)) {
                 $date = \DateTime::createFromFormat('Y-m-d', $due_date);
@@ -592,19 +692,19 @@ switch ($request_method) {
             } else {
                 $due_date = null;
             }
-            
+
             $pdo->beginTransaction();
             try {
                 // Update task fields
                 $stmt = $pdo->prepare("UPDATE tasks SET title = ?, description = ?, due_date = ?, priority = ? WHERE id = ? AND user_id = ?");
                 $stmt->execute([$title, $description, $due_date, $priority, $id, $user_id]);
-                
+
                 // Update tags if provided
                 if (is_array($tags_input)) {
                     // Remove existing tags
                     $stmt = $pdo->prepare("DELETE FROM task_tags WHERE task_id = ?");
                     $stmt->execute([$id]);
-                    
+
                     // Add new tags
                     if (count($tags_input) > 0) {
                         $insertRelation = $pdo->prepare("INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)");
@@ -618,7 +718,7 @@ switch ($request_method) {
                         }
                     }
                 }
-                
+
                 $pdo->commit();
                 echo json_encode(['success' => true, 'id' => $id]);
             } catch (\Exception $e) {
@@ -634,6 +734,7 @@ switch ($request_method) {
 
     // D. DELETE (Aufgabe löschen)
     case 'DELETE':
+        $input = json_decode($raw_input, true);
         if (isset($input['id'])) {
             $id = $input['id'];
             $stmt = $pdo->prepare("DELETE FROM tasks WHERE id = ? AND user_id = ?");
@@ -650,11 +751,141 @@ switch ($request_method) {
             echo json_encode(['error' => 'ID is required for deletion.']);
         }
         break;
-        
+
     default:
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed.']);
         break;
+}
+
+// =================================================================
+// Phase 3: Enhanced Task Creation with Recurring Support
+// =================================================================
+
+/**
+ * Enhanced create task function that supports recurring tasks
+ */
+function create_enhanced_task($pdo, $user_id, $title, $description = null, $due_date = null,
+                               $priority = 'medium', $tags_input = [], $is_recurring = 0,
+                               $recurrence_pattern = null, $recurrence_interval = 1,
+                               $recurrence_end_date = null) {
+
+    $stmt = $pdo->prepare("INSERT INTO `tasks` (title, description, due_date, priority, user_id,
+                                                   is_recurring, recurrence_pattern, recurrence_interval,
+                                                   recurrence_end_date, next_due_date, sort_order)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                  (SELECT COALESCE(MAX(`sort_order`), 0) + 1 FROM `tasks` WHERE `user_id` = ? AND `is_completed` = 0))");
+
+    $next_due = null;
+    if ($is_recurring && $due_date) {
+        $next_due = calculate_next_due_date($due_date, $recurrence_pattern, $recurrence_interval);
+    }
+
+    $stmt->execute([$title, $description, $due_date, $priority, $user_id,
+                    $is_recurring, $recurrence_pattern, $recurrence_interval,
+                    $recurrence_end_date, $next_due, $user_id]);
+
+    $task_id = $pdo->lastInsertId();
+
+    // Handle tags
+    if (is_array($tags_input) && count($tags_input) > 0) {
+        $insertRelation = $pdo->prepare("INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)");
+        foreach ($tags_input as $tname) {
+            $tname = trim((string)$tname);
+            if ($tname === '') continue;
+            $tag_id = get_or_create_tag($pdo, $user_id, $tname);
+            if ($tag_id) {
+                $insertRelation->execute([$task_id, $tag_id]);
+            }
+        }
+    }
+
+    return $task_id;
+}
+
+/**
+ * Calculate next due date for recurring tasks
+ */
+function calculate_next_due_date($current_date, $pattern, $interval = 1) {
+    if (!$current_date || !$pattern) return null;
+
+    $date = new DateTime($current_date);
+
+    switch ($pattern) {
+        case 'daily':
+            $date->modify('+' . $interval . ' days');
+            break;
+        case 'weekly':
+            $date->modify('+' . $interval . ' weeks');
+            break;
+        case 'monthly':
+            $date->modify('+' . $interval . ' months');
+            break;
+        case 'yearly':
+            $date->modify('+' . $interval . ' years');
+            break;
+    }
+
+    return $date->format('Y-m-d');
+}
+
+/**
+ * Generate recurring task instances (called via cron or admin interface)
+ */
+function generate_recurring_tasks($pdo) {
+    $stmt = $pdo->prepare("SELECT * FROM tasks WHERE is_recurring = 1 AND next_due_date <= CURDATE()
+                           AND (recurrence_end_date IS NULL OR recurrence_end_date >= CURDATE())");
+    $stmt->execute();
+    $recurring_tasks = $stmt->fetchAll();
+
+    foreach ($recurring_tasks as $task) {
+        // Create new task instance
+        $pdo->beginTransaction();
+        try {
+            $new_task_id = create_enhanced_task(
+                $pdo,
+                $task['user_id'],
+                $task['title'],
+                $task['description'],
+                $task['next_due_date'],
+                $task['priority'],
+                [], // Don't copy tags for now
+                0, // Don't make the new instance recurring
+                null, null, null
+            );
+
+            // Update next due date for the template
+            $next_due = calculate_next_due_date($task['next_due_date'], $task['recurrence_pattern'], $task['recurrence_interval']);
+
+            // Check if we should stop generating instances
+            $stop_recurrence = false;
+            if ($task['recurrence_end_date'] && $next_due > $task['recurrence_end_date']) {
+                $stop_recurrence = true;
+                $next_due = null;
+            }
+
+            $update_stmt = $pdo->prepare("UPDATE tasks SET next_due_date = ? WHERE id = ?");
+            $update_stmt->execute([$next_due, $task['id']]);
+
+            // If recurrence should end, mark as non-recurring
+            if ($stop_recurrence) {
+                $stop_stmt = $pdo->prepare("UPDATE tasks SET is_recurring = 0 WHERE id = ?");
+                $stop_stmt->execute([$task['id']]);
+            }
+
+            // Copy tags from template to new instance
+            if ($new_task_id) {
+                $copy_tags_stmt = $pdo->prepare("INSERT IGNORE INTO task_tags (task_id, tag_id)
+                                                  SELECT ?, tag_id FROM task_tags WHERE task_id = ?");
+                $copy_tags_stmt->execute([$new_task_id, $task['id']]);
+            }
+
+            $pdo->commit();
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            error_log("Failed to generate recurring task: " . $e->getMessage());
+        }
+    }
 }
 
 ?>

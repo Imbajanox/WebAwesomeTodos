@@ -34,10 +34,18 @@ const toggleAuthViewLink = document.getElementById('toggleAuthView');
 const taskTagsInput = document.getElementById('taskTags'); // NEU
 const tagFilterBar = document.getElementById('tagFilterBar'); // NEU
 
+// Phase 3: New elements for enhanced features
+const searchInput = document.getElementById('searchInput');
+const filterPresetsSelect = document.getElementById('filterPresets');
+
 let allTasks = [];
 let currentFilter = 'all';
 let currentSortBy = 'default';
 let currentPriorityFilter = 'all';
+let currentSearchQuery = '';
+let draggedElement = null;
+let draggedTaskId = null;
+let dateFilter = null; // Phase 3: Date filter function
 let isLoggedIn = false;
 let currentUsername = '';
 let csrfToken = '';
@@ -258,11 +266,53 @@ function createTaskCard(task) {
     const card = document.createElement('wa-card');
     card.className = task.is_completed == 1 ? 'completed' : '';
     card.setAttribute('data-id', task.id);
-    
+
+    // Phase 3: Add drag-and-drop functionality
+    card.setAttribute('draggable', 'true');
+    card.classList.add('draggable-task');
+
     // Add priority class for styling
     if (task.priority) {
         card.classList.add(`priority-${task.priority}`);
     }
+
+    // Phase 3: Drag and drop event listeners
+    card.addEventListener('dragstart', (e) => {
+        draggedElement = card;
+        draggedTaskId = task.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', card.innerHTML);
+    });
+
+    card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        draggedElement = null;
+        draggedTaskId = null;
+    });
+
+    card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        if (draggedElement && draggedElement !== card) {
+            const taskList = card.closest('.task-list');
+            const allCards = taskList.querySelectorAll('.draggable-task');
+            const draggedIndex = Array.from(allCards).indexOf(draggedElement);
+            const targetIndex = Array.from(allCards).indexOf(card);
+
+            if (draggedIndex < targetIndex) {
+                card.parentNode.insertBefore(draggedElement, card.nextSibling);
+            } else {
+                card.parentNode.insertBefore(draggedElement, card);
+            }
+        }
+    });
+
+    card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        updateTaskSortOrder();
+    });
 
     // 2. Checkbox (Toggle) erstellen
     const checkbox = document.createElement('wa-checkbox');
@@ -444,15 +494,8 @@ function renderTasks() {
     }
 
     
-    // 2. Aufgaben filtern
-    let tasksToRender = [];
-    if (currentFilter === 'open') {
-        tasksToRender = allTasks.filter(task => task.is_completed == 0);
-    } else if (currentFilter === 'completed') {
-        tasksToRender = allTasks.filter(task => task.is_completed == 1);
-    } else {
-        tasksToRender = allTasks; // 'all'
-    }
+    // 2. Aufgaben filtern - using enhanced filtering system
+    let tasksToRender = applyEnhancedFilters(allTasks);
 
     if (currentTagNames && currentTagNames.length > 0) {
         // Normalisiere Filter-Tags zu flachen Lowercase-Strings
@@ -469,7 +512,36 @@ function renderTasks() {
     }
     console.log('Tasks after tag filtering:', tasksToRender);
 
-    
+    // Phase 3: Full-text search functionality
+    if (currentSearchQuery && currentSearchQuery.trim()) {
+        const searchTerms = currentSearchQuery.toLowerCase().trim().split(/\s+/);
+        tasksToRender = tasksToRender.filter(task => {
+            // Search in title
+            const titleMatch = searchTerms.every(term =>
+                task.title.toLowerCase().includes(term)
+            );
+
+            // Search in description
+            let descriptionMatch = false;
+            if (task.description && task.description.trim()) {
+                descriptionMatch = searchTerms.every(term =>
+                    task.description.toLowerCase().includes(term)
+                );
+            }
+
+            // Search in tags
+            const taskTags = getTaskTags(task);
+            let tagsMatch = false;
+            if (taskTags.length > 0) {
+                tagsMatch = searchTerms.every(term =>
+                    taskTags.some(tag => tag.toLowerCase().includes(term))
+                );
+            }
+
+            return titleMatch || descriptionMatch || tagsMatch;
+        });
+    }
+
     // Filter by priority
     if (currentPriorityFilter !== 'all') {
         tasksToRender = tasksToRender.filter(task => task.priority === currentPriorityFilter);
@@ -492,6 +564,9 @@ function renderTasks() {
         });
     } else if (currentSortBy === 'created') {
         tasksToRender.sort((a, b) => b.id - a.id); // Newer first
+    } else if (currentSortBy === 'sort_order') {
+        // Phase 3: Custom drag-and-drop sort order
+        tasksToRender.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     }
     // default: already sorted by backend (is_completed ASC, created_at DESC)
 
@@ -534,10 +609,32 @@ async function fetchTasks() {
     if (!isLoggedIn) return
 
     taskListContainer.innerHTML = `<div class="loading"><wa-spinner size="large"></wa-spinner><p>Aufgaben werden geladen...</p></div>`;
-    
+
     try {
-        const useServerFilter = currentTagNames.length === 0 && currentTagName;
-        const url = useServerFilter ? `api.php?tag=${encodeURIComponent(currentTagName)}` : 'api.php';
+        // Build URL with sort_by parameter for custom ordering
+        let url = 'api.php';
+        const params = new URLSearchParams();
+
+        // Add sort_by parameter if not default
+        if (currentSortBy && currentSortBy !== 'default') {
+            params.append('sort_by', currentSortBy);
+        }
+
+        // Add tag filter if needed
+        if (currentTagNames.length === 0 && currentTagName) {
+            params.append('tag', currentTagName);
+        }
+
+        // Add search query if present
+        if (currentSearchQuery && currentSearchQuery.trim()) {
+            params.append('search', currentSearchQuery.trim());
+        }
+
+        // Append params to URL if any
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+
         const response = await fetch(url);
         const tasks = await response.json();
         allTasks = tasks;
@@ -705,7 +802,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sortBySelect) {
         sortBySelect.addEventListener('change', (e) => {
             currentSortBy = sortBySelect.value;
-            renderTasks();
+            fetchTasks(); // Fetch tasks from backend with new sorting
         });
     }
     
@@ -1348,10 +1445,310 @@ function escapeHtml(s) {
         .replace(/'/g, '&#39;');
 }
 
+// =================================================================
+// Phase 3: Enhanced User Experience Functions
+// =================================================================
+
+/**
+ * Updates the sort order of tasks after drag-and-drop reordering
+ */
+async function updateTaskSortOrder() {
+    const taskCards = document.querySelectorAll('.draggable-task');
+    const sortUpdates = [];
+
+    taskCards.forEach((card, index) => {
+        const taskId = card.getAttribute('data-id');
+        sortUpdates.push({
+            id: parseInt(taskId),
+            sort_order: index + 1
+        });
+    });
+
+    if (sortUpdates.length === 0) return;
+
+    // 🕵️‍♂️ DEBUGGING CODE START
+    const requestBody = { sort_updates: sortUpdates };
+    
+    // Gibt das JavaScript-Objekt aus
+    console.log("DEBUG: Request Body Object:", requestBody);
+    
+    // Gibt den finalen JSON-String aus, der gesendet wird
+    console.log("DEBUG: Request Body JSON String:", JSON.stringify(requestBody));
+    
+    // Optional: Halten Sie die Ausführung an, um die Konsole zu inspizieren
+    // debugger; 
+    // 🕵️‍♂️ DEBUGGING CODE END
+
+    try {
+        const response = await fetch('api.php?action=updateSortOrder', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ sort_updates: sortUpdates })
+        });
+
+        if (response.ok) {
+            // Update local data
+            sortUpdates.forEach(update => {
+                const task = allTasks.find(t => t.id === update.id);
+                if (task) {
+                    task.sort_order = update.sort_order;
+                }
+            });
+            renderTasks(); // Re-render to reflect new order
+        } else {
+            console.error('Failed to update sort order');
+        }
+    } catch (error) {
+        console.error('Error updating sort order:', error);
+    }
+}
+
+/**
+ * Handles search input changes
+ */
+function handleSearchInput() {
+    currentSearchQuery = searchInput ? searchInput.value : '';
+    renderTasks();
+}
+
+/**
+ * Applies smart filter presets
+ */
+function applyFilterPreset(preset) {
+    switch(preset) {
+        case 'today':
+            currentFilter = 'all';
+            // Apply date filter through enhanced filtering logic
+            applyDateFilter('today');
+            break;
+        case 'week':
+            currentFilter = 'all';
+            applyDateFilter('week');
+            break;
+        case 'highpriority':
+            currentFilter = 'open';
+            currentPriorityFilter = 'high';
+            clearDateFilter(); // Clear any existing date filter
+            break;
+        case 'overdue':
+            currentFilter = 'open';
+            applyDateFilter('overdue');
+            break;
+        default:
+            currentFilter = 'all';
+            currentPriorityFilter = 'all';
+            clearDateFilter();
+    }
+    renderTasks();
+}
+
+/**
+ * Applies date-based filtering
+ */
+function applyDateFilter(type) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let filterFunc;
+    switch(type) {
+        case 'today':
+            filterFunc = (task) => {
+                if (!task.due_date) return false;
+                const dueDate = new Date(task.due_date + 'T00:00:00');
+                return dueDate.toDateString() === today.toDateString();
+            };
+            break;
+        case 'week':
+            const weekEnd = new Date(today);
+            weekEnd.setDate(weekEnd.getDate() + 7);
+            filterFunc = (task) => {
+                if (!task.due_date) return false;
+                const dueDate = new Date(task.due_date + 'T00:00:00');
+                return dueDate >= today && dueDate <= weekEnd;
+            };
+            break;
+        case 'overdue':
+            filterFunc = (task) => {
+                if (!task.due_date) return false;
+                const dueDate = new Date(task.due_date + 'T00:00:00');
+                return dueDate < today;
+            };
+            break;
+    }
+
+    if (filterFunc) {
+        dateFilter = filterFunc;
+    }
+}
+
+/**
+ * Clears date-based filtering
+ */
+function clearDateFilter() {
+    dateFilter = null;
+}
+
+/**
+ * Enhanced task filtering including date filters
+ */
+function applyEnhancedFilters(tasks) {
+    let filteredTasks = [...tasks];
+
+    // Apply existing filters
+    if (currentFilter === 'open') {
+        filteredTasks = filteredTasks.filter(task => task.is_completed == 0);
+    } else if (currentFilter === 'completed') {
+        filteredTasks = filteredTasks.filter(task => task.is_completed == 1);
+    }
+
+    // Apply priority filter
+    if (currentPriorityFilter !== 'all') {
+        filteredTasks = filteredTasks.filter(task => task.priority === currentPriorityFilter);
+    }
+
+    // Apply date filter if exists
+    if (dateFilter && typeof dateFilter === 'function') {
+        filteredTasks = filteredTasks.filter(dateFilter);
+    }
+
+    return filteredTasks;
+}
+
+/**
+ * Shows recurring task creation dialog
+ */
+function showRecurringTaskDialog() {
+    // For now, enhance the existing add task form
+    // In a full implementation, this would show a dedicated dialog
+    const recurringDialog = document.createElement('div');
+    recurringDialog.innerHTML = `
+        <wa-card style="max-width: 500px; margin: 2rem auto;">
+            <h3 slot="header">Wiederkehrende Aufgabe erstellen</h3>
+            <p>Wiederkehrende Aufgaben erstellen automatisch neue Instanzen basierend auf einem Muster.</p>
+            <div style="margin: 1rem 0;">
+                <wa-select id="recurrencePattern" placeholder="Wiederholungsmuster" size="medium">
+                    <wa-option value="daily">Täglich</wa-option>
+                    <wa-option value="weekly">Wöchentlich</wa-option>
+                    <wa-option value="monthly">Monatlich</wa-option>
+                    <wa-option value="yearly">Jährlich</wa-option>
+                </wa-select>
+            </div>
+            <div style="margin: 1rem 0;">
+                <label>Intervall: </label>
+                <wa-input type="number" id="recurrenceInterval" value="1" min="1" size="small" style="width: 80px;">
+                <span id="intervalLabel">Tag(e)</span>
+            </div>
+            <div style="margin: 1rem 0;">
+                <label>Enddatum (optional): </label>
+                <wa-input type="date" id="recurrenceEndDate" size="medium">
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <wa-button variant="primary" id="saveRecurringTask">Erstellen</wa-button>
+                <wa-button variant="neutral" id="cancelRecurringTask">Abbrechen</wa-button>
+            </div>
+        </wa-card>
+    `;
+
+    document.body.appendChild(recurringDialog);
+
+    // Event listeners for the dialog
+    document.getElementById('saveRecurringTask').addEventListener('click', saveRecurringTask);
+    document.getElementById('cancelRecurringTask').addEventListener('click', () => {
+        document.body.removeChild(recurringDialog);
+    });
+
+    document.getElementById('recurrencePattern').addEventListener('change', updateIntervalLabel);
+    updateIntervalLabel();
+}
+
+/**
+ * Updates interval label based on recurrence pattern
+ */
+function updateIntervalLabel() {
+    const pattern = document.getElementById('recurrencePattern').value;
+    const intervalLabel = document.getElementById('intervalLabel');
+
+    const labels = {
+        daily: 'Tag(e)',
+        weekly: 'Woche(n)',
+        monthly: 'Monat(e)',
+        yearly: 'Jahr(e)'
+    };
+
+    intervalLabel.textContent = labels[pattern] || 'Tag(e)';
+}
+
+/**
+ * Saves a recurring task
+ */
+async function saveRecurringTask() {
+    const title = taskTitleInput.value.trim();
+    const description = taskDescriptionInput.value.trim();
+    const dueDate = taskDueDateInput.value;
+    const priority = taskPriorityInput.value;
+    const tags = taskTagsInput ? taskTagsInput.value.trim() : '';
+
+    const pattern = document.getElementById('recurrencePattern').value;
+    const interval = parseInt(document.getElementById('recurrenceInterval').value);
+    const endDate = document.getElementById('recurrenceEndDate').value;
+
+    if (!title) {
+        showValidationError('Titel ist erforderlich');
+        return;
+    }
+
+    try {
+        const response = await fetch('api.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({
+                title,
+                description,
+                due_date: dueDate,
+                priority,
+                tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+                is_recurring: 1,
+                recurrence_pattern: pattern,
+                recurrence_interval: interval,
+                recurrence_end_date: endDate
+            })
+        });
+
+        if (response.ok) {
+            document.body.removeChild(document.querySelector('wa-card').parentElement);
+            addTaskForm.reset();
+            await fetchTasks();
+        } else {
+            const data = await response.json();
+            showValidationError(data.error || 'Fehler beim Erstellen der wiederkehrenden Aufgabe');
+        }
+    } catch (error) {
+        console.error('Error creating recurring task:', error);
+        showValidationError('Netzwerkfehler aufgetreten');
+    }
+}
+
 // -> Eventlistener hinzufügen (z. B. in DOMContentLoaded bereits vorhandene Listener ergänzen)
 document.addEventListener('DOMContentLoaded', () => {
     const printBtn = document.getElementById('printView');
     if (printBtn) {
         printBtn.addEventListener('click', printCurrentTasks);
+    }
+
+    // Phase 3: Add new event listeners
+    if (searchInput) {
+        searchInput.addEventListener('input', handleSearchInput);
+    }
+
+    if (filterPresetsSelect) {
+        filterPresetsSelect.addEventListener('change', () => {
+            applyFilterPreset(filterPresetsSelect.value);
+        });
     }
 });

@@ -33,12 +33,31 @@ CREATE TABLE IF NOT EXISTS `tasks` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `is_completed` tinyint(1) NOT NULL DEFAULT 0,
   `user_id` int UNSIGNED NOT NULL,
+  -- Phase 3: Enhanced User Experience Features
+  `is_recurring` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Whether this is a recurring task template',
+  `recurrence_pattern` varchar(20) DEFAULT NULL COMMENT 'Recurrence pattern: daily, weekly, monthly, yearly',
+  `recurrence_interval` int DEFAULT 1 COMMENT 'Interval for recurrence',
+  `recurrence_end_date` date DEFAULT NULL COMMENT 'Optional end date for recurrence',
+  `next_due_date` date DEFAULT NULL COMMENT 'Next due date for recurring task generation',
+  `sort_order` int NOT NULL DEFAULT 0 COMMENT 'Custom sort order for drag-and-drop reordering',
+  `parent_task_id` int UNSIGNED DEFAULT NULL COMMENT 'For task dependencies',
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   KEY `due_date` (`due_date`),
   KEY `priority` (`priority`),
-  CONSTRAINT `tasks_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `is_recurring` (`is_recurring`),
+  KEY `next_due_date` (`next_due_date`),
+  KEY `sort_order` (`sort_order`),
+  CONSTRAINT `tasks_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `tasks_parent_fk` FOREIGN KEY (`parent_task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =================================================================
+-- 6. Full-Text Search Index (Phase 3)
+-- =================================================================
+-- Adds full-text search capability for faster text searches
+-- =================================================================
+CREATE FULLTEXT INDEX `task_search` (`title`, `description`);
 
 -- =================================================================
 -- 3. Tags Table
@@ -71,3 +90,9 @@ CREATE TABLE IF NOT EXISTS `task_tags` (
   CONSTRAINT `task_tags_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE,
   CONSTRAINT `task_tags_ibfk_2` FOREIGN KEY (`tag_id`) REFERENCES `tags` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- =================================================================
+-- 6. Full-Text Search Index (Phase 3)
+-- =================================================================
+-- Adds full-text search capability for faster text searches
+-- =================================================================
+CREATE FULLTEXT INDEX `task_search` (`title`, `description`);
